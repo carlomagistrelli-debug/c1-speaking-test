@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>C1 Speaking Test – Part 2</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 1.6rem; font-weight: 700; color: #2b4a7e; }
+    header p  { margin-top: 0.4rem; font-size: 0.95rem; color: #4a5568; }
+
+    #main { width: 100%; max-width: 860px; }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    .step-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #718096;
+      text-align: center;
+      margin-bottom: 1.2rem;
+    }
+
+    /* ── Section header row ─────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .section-header .step-label { margin-bottom: 0; }
+    .header-actions { display: flex; gap: 0.5rem; }
+
+    .action-btn {
+      padding: 0.35rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 7px;
+      border: 2px solid #3182ce;
+      background: #fff;
+      color: #3182ce;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .action-btn:hover { background: #3182ce; color: #fff; }
+    .action-btn:disabled { border-color: #a0aec0; color: #a0aec0; cursor: not-allowed; }
+    .action-btn:disabled:hover { background: #fff; }
+
+    /* ── Generic choice cards (mode, role) ──────────────────────── */
+    .choice-cards {
+      display: flex;
+      gap: 1.2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .choice-card {
+      flex: 1 1 220px;
+      max-width: 300px;
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    .choice-card:hover {
+      border-color: #3182ce;
+      box-shadow: 0 4px 16px rgba(49,130,206,0.15);
+      transform: translateY(-3px);
+    }
+
+    .choice-card .card-icon { font-size: 2.6rem; margin-bottom: 0.7rem; }
+    .choice-card h2 { font-size: 1rem; font-weight: 700; color: #2b4a7e; margin-bottom: 0.4rem; }
+    .choice-card p  { font-size: 0.84rem; color: #718096; line-height: 1.45; }
+    .choice-card .card-tag {
+      display: inline-block;
+      margin-top: 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #2b6cb0;
+      background: #ebf8ff;
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+
+    /* ── Topic grid ─────────────────────────────────────────────── */
+    .topics-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .topic-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.75rem 1rem;
+      width: 110px;
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #2d3748;
+      font-weight: 600;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+
+    .topic-btn:hover { border-color: #3182ce; background: #ebf8ff; transform: translateY(-2px); }
+    .topic-btn .emoji { font-size: 1.8rem; }
+
+    /* ── Image slots (upload & pick) ────────────────────────────── */
+    .slots {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .slot {
+      flex: 1 1 220px;
+      max-width: 270px;
+      height: 200px;
+      border: 3px solid transparent;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      background: #e2e8f0;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    /* upload-mode */
+    .slot.upload-mode {
+      border: 2px dashed #90cdf4;
+      background: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slot.upload-mode:hover { border-color: #3182ce; background: #ebf8ff; }
+    .slot.upload-mode.filled { border-style: solid; border-color: #3182ce; }
+
+    /* select-mode (pick section) */
+    .slot.select-mode { cursor: pointer; }
+    .slot.select-mode:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .slot.selected { border-color: #2b6cb0 !important; box-shadow: 0 0 0 4px #bee3f8; }
+
+    /* loading skeleton */
+    .slot.loading { cursor: default; border: none; }
+    .slot.loading::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e0 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .slot img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+    }
+
+    .slot-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .slot-placeholder svg { width: 40px; height: 40px; color: #90cdf4; }
+    .slot-placeholder p   { font-size: 0.85rem; color: #718096; }
+
+    .slot input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 3;
+    }
+
+    /* check badge */
+    .check-badge {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 28px; height: 28px;
+      background: #2b6cb0;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+    }
+
+    .slot.selected .check-badge { display: flex; }
+
+    .check-badge svg {
+      width: 16px; height: 16px;
+      stroke: #fff; fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* change button (upload select mode) */
+    .change-btn {
+      position: absolute;
+      bottom: 7px; right: 7px;
+      background: rgba(0,0,0,0.55);
+      border: none;
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 0.72rem;
+      color: #fff;
+      cursor: pointer;
+      display: none;
+      z-index: 5;
+    }
+
+    .slot.upload-mode.filled .change-btn { display: block; }
+    .change-btn:hover { background: rgba(0,0,0,0.75); }
+
+    /* photo credit */
+    .credit {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 4px 7px;
+      background: rgba(0,0,0,0.45);
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+    }
+
+    .credit a { color: inherit; text-decoration: underline; }
+
+    /* ── Counter & continue ─────────────────────────────────────── */
+    .counter {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #718096;
+      margin-bottom: 1rem;
+    }
+
+    .counter span { font-weight: 700; color: #2b6cb0; }
+
+    .btn {
+      display: block;
+      margin: 0 auto;
+      padding: 0.65rem 2rem;
+      background: #2b6cb0;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn:not(:disabled):hover { background: #2c5282; }
+    .btn.hidden { visibility: hidden; }
+
+    /* ── Activity (1st candidate) ──────────────────────────────── */
+    .activity-images {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .activity-img {
+      flex: 1 1 220px;
+      max-width: 360px;
+      height: 200px;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .activity-img img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .activity-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    /* circular timer */
+    .timer-wrap { position: relative; width: 120px; height: 120px; }
+
+    .timer-svg { width: 120px; height: 120px; }
+
+    #timer-ring {
+      transition: stroke 0.5s;
+      stroke: #48bb78;
+    }
+
+    #timer-text {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'Segoe UI', sans-serif;
+      fill: #2d3748;
+      transition: fill 0.5s;
+    }
+
+    /* recording dot */
+    .rec-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: #e53e3e;
+      font-weight: 600;
+    }
+
+    .rec-dot {
+      width: 11px; height: 11px;
+      background: #e53e3e;
+      border-radius: 50%;
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.35; transform: scale(0.75); }
+    }
+
+    .stop-btn {
+      background: #e53e3e;
+      padding: 0.6rem 2.2rem;
+      font-size: 1rem;
+    }
+
+    .stop-btn:hover { background: #c53030; }
+
+    /* live transcript */
+    .transcript-live {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 1rem;
+    }
+
+    .transcript-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #a0aec0;
+      margin-bottom: 0.5rem;
+    }
+
+    .transcript-box {
+      min-height: 60px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 0.92rem;
+      color: #4a5568;
+      line-height: 1.6;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+    }
+
+    .transcript-box .interim { color: #a0aec0; }
+
+    /* ── Transcript result ──────────────────────────────────────── */
+    .result-meta {
+      font-size: 0.88rem;
+      color: #718096;
+      margin-bottom: 0.8rem;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .saved-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #276749;
+      background: #c6f6d5;
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+
+    .result-transcript-box {
+      min-height: 120px;
+      max-height: 300px;
+      font-size: 1rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1.2rem;
+      flex-wrap: wrap;
+    }
+
+    .download-btn { background: #2f855a; }
+    .download-btn:hover { background: #276749; }
+
+    /* ── Error ──────────────────────────────────────────────────── */
+    .error-msg {
+      display: none;
+      text-align: center;
+      color: #c53030;
+      font-size: 0.9rem;
+      margin-bottom: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>C1 Speaking Test &mdash; Part 2</h1>
+  <p>Guided speaking activity preparation</p>
+</header>
+
+<div id="main">
+
+  <!-- ① Mode selection -->
+  <section id="mode-section" class="active">
+    <p class="step-label">How would you like to get the images?</p>
+    <div class="choice-cards">
+      <div class="choice-card" id="mode-unsplash">
+        <div class="card-icon">🌐</div>
+        <h2>Unsplash images</h2>
+        <p>Choose a topic and fetch themed photos automatically</p>
+      </div>
+      <div class="choice-card" id="mode-upload">
+        <div class="card-icon">📁</div>
+        <h2>My own images</h2>
+        <p>Upload 3 photos from your device</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② Unsplash: topic selection -->
+  <section id="topic-section">
+    <div class="section-header">
+      <p class="step-label">Choose a topic</p>
+      <div class="header-actions">
+        <button class="action-btn" id="topic-back-btn">&#8592; Change mode</button>
+      </div>
+    </div>
+    <div class="topics-grid" id="topics-grid"></div>
+    <p class="error-msg" id="fetch-error">Could not load images. Check your connection and try again.</p>
+  </section>
+
+  <!-- ③ Upload: upload 3 images -->
+  <section id="upload-section">
+    <div class="section-header">
+      <p class="step-label" id="upload-label">Upload 3 images</p>
+      <div class="header-actions">
+        <button class="action-btn" id="upload-back-btn">&#8592; Change mode</button>
+      </div>
+    </div>
+    <div class="slots" id="upload-slots"></div>
+    <p class="counter" id="upload-counter">Uploaded: <span>0</span> / 3</p>
+  </section>
+
+  <!-- ④ Role selection -->
+  <section id="role-section">
+    <div class="section-header">
+      <p class="step-label">Choose your role</p>
+      <div class="header-actions">
+        <button class="action-btn" id="role-back-btn">&#8592; Back</button>
+      </div>
+    </div>
+    <div class="choice-cards">
+      <div class="choice-card" id="role-first">
+        <div class="card-icon">🗣️</div>
+        <h2>1st Candidate</h2>
+        <p>Compare and contrast two photos, then answer a related question</p>
+        <span class="card-tag">~1 minute</span>
+      </div>
+      <div class="choice-card" id="role-second">
+        <div class="card-icon">👂</div>
+        <h2>2nd Candidate</h2>
+        <p>Listen, then comment briefly on the same photos</p>
+        <span class="card-tag">~30 seconds</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ Display 2 images (2nd candidate — app's choice) -->
+  <section id="display-section">
+    <div class="section-header">
+      <p class="step-label">Your two images</p>
+      <div class="header-actions">
+        <button class="action-btn" id="display-back-btn">&#8592; Change role</button>
+      </div>
+    </div>
+    <div class="slots" id="display-slots"></div>
+    <button class="btn" id="display-continue">Continue</button>
+  </section>
+
+  <!-- ⑥ Pick 2 images (1st candidate only) -->
+  <section id="pick-section">
+    <div class="section-header">
+      <p class="step-label">Choose 2 images</p>
+      <div class="header-actions">
+        <button class="action-btn" id="pick-back-btn">&#8592; Change role</button>
+      </div>
+    </div>
+    <div class="slots" id="pick-slots"></div>
+    <p class="counter" id="pick-counter">Selected: <span>0</span> / 2</p>
+    <button class="btn hidden" id="pick-continue" disabled>Continue</button>
+  </section>
+
+  <!-- ⑦ 1st Candidate — speaking activity -->
+  <section id="activity-first">
+    <div class="section-header">
+      <p class="step-label">1st Candidate &mdash; Speaking</p>
+      <div class="header-actions">
+        <button class="action-btn" id="activity-back-btn">&#8592; Change role</button>
+      </div>
+    </div>
+
+    <div class="activity-images" id="activity-images"></div>
+    <p class="error-msg" id="activity-error" style="margin-bottom:0.8rem"></p>
+
+    <div class="activity-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#48bb78" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="timer-text" x="50" y="57" text-anchor="middle">0:00</text>
+        </svg>
+      </div>
+
+      <div class="rec-status">
+        <span class="rec-dot"></span>
+        <span>Recording…</span>
+      </div>
+
+      <button class="btn stop-btn" id="stop-btn">&#9209; Stop</button>
+    </div>
+
+    <div class="transcript-live">
+      <p class="transcript-label">Live transcript</p>
+      <div class="transcript-box" id="transcript-box">
+        <span id="transcript-final"></span><span class="interim" id="transcript-interim"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ Transcript result -->
+  <section id="transcript-section">
+    <div class="section-header">
+      <p class="step-label">Your transcript</p>
+      <div class="header-actions">
+        <button class="action-btn" id="transcript-restart-btn">&#8635; Start again</button>
+      </div>
+    </div>
+    <div class="result-meta">
+      <span>Duration: <strong id="result-duration">—</strong></span>
+      <span id="result-saved-badge" class="saved-badge" style="display:none">&#10003; Saved</span>
+    </div>
+    <div class="transcript-box result-transcript-box" id="result-transcript-text"></div>
+    <div class="result-actions">
+      <button class="btn download-btn" id="transcript-download-btn">&#8595; Download .txt</button>
+      <button class="btn" id="transcript-continue-btn">Continue</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const API_KEY = 'HNNl4DxhiNd3n4QeqFNk95pzwAEpiAKhqbiP4FvccZE';
+  const TOTAL  = 3;
+  const CHOOSE = 2;
+
+  const TOPICS = [
+    { label: 'Technology',    emoji: '💻', query: 'technology' },
+    { label: 'Education',     emoji: '📚', query: 'education school' },
+    { label: 'Environment',   emoji: '🌿', query: 'environment nature' },
+    { label: 'Health',        emoji: '🏃', query: 'health fitness' },
+    { label: 'Work',          emoji: '💼', query: 'people working office' },
+    { label: 'Travel',        emoji: '✈️',  query: 'travel tourism' },
+    { label: 'Food',          emoji: '🍽️', query: 'food cooking' },
+    { label: 'Sport',         emoji: '⚽',  query: 'sport competition' },
+    { label: 'Family',        emoji: '👨‍👩‍👧', query: 'family together' },
+    { label: 'City life',     emoji: '🏙️', query: 'city urban life' },
+    { label: 'Social media',  emoji: '📱', query: 'social media smartphone' },
+    { label: 'Art & Culture', emoji: '🎨', query: 'art culture museum' },
+  ];
+
+  // ── Shared state ────────────────────────────────────────────────
+  // allImages: array of 3 objects { src, creditHtml }
+  let allImages    = [];
+  let imageSource  = null;   // 'unsplash' | 'upload'
+  let fetchPromise = null;   // pending Unsplash fetch
+
+  // ── Section helper ──────────────────────────────────────────────
+  function showOnly(id) {
+    document.querySelectorAll('#main section').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // MODE SELECTION
+  // ════════════════════════════════════════════════════════════════
+  document.getElementById('mode-unsplash').addEventListener('click', () => {
+    imageSource = 'unsplash';
+    allImages = [];
+    fetchPromise = null;
+    fetchError.style.display = 'none';
+    showOnly('topic-section');
+  });
+
+  document.getElementById('mode-upload').addEventListener('click', () => {
+    imageSource = 'upload';
+    allImages = [];
+    resetUpload();
+    showOnly('upload-section');
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // UNSPLASH FLOW
+  // ════════════════════════════════════════════════════════════════
+  let currentTopic = null;
+
+  const topicsGrid  = document.getElementById('topics-grid');
+  const fetchError  = document.getElementById('fetch-error');
+
+  TOPICS.forEach(topic => {
+    const btn = document.createElement('button');
+    btn.className = 'topic-btn';
+    btn.innerHTML = `<span class="emoji">${topic.emoji}</span>${topic.label}`;
+    btn.addEventListener('click', () => onTopicSelected(topic));
+    topicsGrid.appendChild(btn);
+  });
+
+  document.getElementById('topic-back-btn').addEventListener('click', () => {
+    fetchPromise = null;
+    showOnly('mode-section');
+  });
+
+  async function onTopicSelected(topic) {
+    currentTopic = topic;
+    allImages = [];
+    fetchError.style.display = 'none';
+
+    // Disable topic buttons while loading
+    topicsGrid.querySelectorAll('.topic-btn').forEach(b => b.disabled = true);
+
+    fetchPromise = fetchImages(topic.query);
+    const ok = await fetchPromise;
+
+    topicsGrid.querySelectorAll('.topic-btn').forEach(b => b.disabled = false);
+
+    if (ok) showOnly('role-section');
+  }
+
+  async function fetchImages(query) {
+    try {
+      const url = `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&count=${TOTAL}&client_id=${API_KEY}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      allImages = data.map(p => ({
+        src: p.urls.regular,
+        creditHtml: `Photo by <a href="${p.user.links.html}?utm_source=c1_test_app&utm_medium=referral" target="_blank" rel="noopener">${p.user.name}</a> on <a href="${p.links.html}?utm_source=c1_test_app&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>`,
+      }));
+      return true;
+    } catch (err) {
+      fetchError.style.display = 'block';
+      console.error(err);
+      return false;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // UPLOAD FLOW
+  // ════════════════════════════════════════════════════════════════
+  const uploadSlotsEl  = document.getElementById('upload-slots');
+  const uploadCounter  = document.getElementById('upload-counter');
+  const uploadLabel    = document.getElementById('upload-label');
+  const uploadedImages = new Array(TOTAL).fill(null);
+
+  document.getElementById('upload-back-btn').addEventListener('click', () => showOnly('mode-section'));
+
+  function resetUpload() {
+    uploadedImages.fill(null);
+    uploadLabel.textContent = 'Upload 3 images';
+    uploadCounter.innerHTML = `Uploaded: <span>0</span> / ${TOTAL}`;
+    buildUploadSlots();
+  }
+
+  function buildUploadSlots() {
+    uploadSlotsEl.innerHTML = '';
+    for (let i = 0; i < TOTAL; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot upload-mode';
+      slot.innerHTML = `
+        <div class="slot-placeholder">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021
+                 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+          </svg>
+          <p>Upload image</p>
+        </div>
+        <button class="change-btn">Change</button>
+        <input type="file" accept="image/*" />
+      `;
+      uploadSlotsEl.appendChild(slot);
+
+      const fileInput = slot.querySelector('input[type="file"]');
+      const changeBtn = slot.querySelector('.change-btn');
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          uploadedImages[i] = ev.target.result;
+          setSlotImage(slot, ev.target.result);
+          onUploadChange();
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      });
+
+      changeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.click();
+      });
+    }
+  }
+
+  function setSlotImage(slot, src) {
+    slot.classList.add('filled');
+    let img = slot.querySelector('img');
+    if (!img) {
+      img = document.createElement('img');
+      slot.insertBefore(img, slot.querySelector('.change-btn'));
+    }
+    img.src = src;
+    slot.querySelector('.slot-placeholder').style.display = 'none';
+  }
+
+  function onUploadChange() {
+    const count = uploadedImages.filter(Boolean).length;
+    uploadCounter.innerHTML = `Uploaded: <span>${count}</span> / ${TOTAL}`;
+    if (count === TOTAL) {
+      allImages = uploadedImages.map(src => ({ src, creditHtml: null }));
+      showOnly('role-section');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // ROLE SELECTION
+  // ════════════════════════════════════════════════════════════════
+  document.getElementById('role-back-btn').addEventListener('click', () => {
+    if (imageSource === 'unsplash') showOnly('topic-section');
+    else showOnly('upload-section');
+  });
+
+  document.getElementById('role-first').addEventListener('click', () => {
+    showPickSection();
+  });
+
+  document.getElementById('role-second').addEventListener('click', () => {
+    const indices = randomTwo();
+    const chosen = indices.map(i => allImages[i]);
+    showDisplaySection(chosen);
+  });
+
+  function randomTwo() {
+    const indices = [0, 1, 2];
+    // Fisher-Yates shuffle, take first 2
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices.slice(0, CHOOSE);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // DISPLAY SECTION (2nd candidate — shows the 2 randomly picked images)
+  // ════════════════════════════════════════════════════════════════
+  const displaySlotsEl = document.getElementById('display-slots');
+  let displayChosen    = [];
+
+  document.getElementById('display-back-btn').addEventListener('click', () => showOnly('role-section'));
+
+  document.getElementById('display-continue').addEventListener('click', () => {
+    onActivityReady('2nd', displayChosen);
+  });
+
+  function showDisplaySection(chosen) {
+    displayChosen = chosen;
+    displaySlotsEl.innerHTML = '';
+
+    chosen.forEach((img, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.innerHTML = `
+        <img src="${img.src}" alt="Image ${i + 1}" loading="lazy" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}
+      `;
+      displaySlotsEl.appendChild(slot);
+    });
+
+    showOnly('display-section');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PICK SECTION (1st candidate)
+  // ════════════════════════════════════════════════════════════════
+  const pickSlotsEl  = document.getElementById('pick-slots');
+  const pickCounter  = document.getElementById('pick-counter');
+  const pickContinue = document.getElementById('pick-continue');
+  let pickSelected   = new Set();
+
+  document.getElementById('pick-back-btn').addEventListener('click', () => showOnly('role-section'));
+
+  function showPickSection() {
+    pickSelected.clear();
+    pickCounter.innerHTML = `Selected: <span>0</span> / ${CHOOSE}`;
+    pickContinue.classList.add('hidden');
+    pickContinue.disabled = true;
+    pickSlotsEl.innerHTML = '';
+
+    allImages.forEach((img, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'slot select-mode';
+      slot.innerHTML = `
+        <img src="${img.src}" alt="Image ${i + 1}" loading="lazy" />
+        <div class="check-badge">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}
+      `;
+      slot.addEventListener('click', () => pickToggle(slot, i));
+      pickSlotsEl.appendChild(slot);
+    });
+
+    showOnly('pick-section');
+  }
+
+  function pickToggle(slot, index) {
+    if (pickSelected.has(index)) {
+      pickSelected.delete(index);
+      slot.classList.remove('selected');
+    } else {
+      if (pickSelected.size >= CHOOSE) return;
+      pickSelected.add(index);
+      slot.classList.add('selected');
+    }
+    pickCounter.innerHTML = `Selected: <span>${pickSelected.size}</span> / ${CHOOSE}`;
+    const ready = pickSelected.size === CHOOSE;
+    pickContinue.disabled = !ready;
+    if (ready) pickContinue.classList.remove('hidden');
+  }
+
+  pickContinue.addEventListener('click', () => {
+    const chosen = [...pickSelected].map(i => allImages[i]);
+    onActivityReady('1st', chosen);
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // HAND-OFF TO ACTIVITY
+  // ════════════════════════════════════════════════════════════════
+  function onActivityReady(role, chosenImages) {
+    if (role === '1st') startFirstCandidateActivity(chosenImages);
+    else alert('2nd Candidate activity — coming soon.');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 1ST CANDIDATE ACTIVITY
+  // ════════════════════════════════════════════════════════════════
+  const SOFT_LIMIT    = 60;                          // seconds
+  const CIRCUMFERENCE = 263.89;                      // 2π×42
+
+  const activityImages  = document.getElementById('activity-images');
+  const timerRing       = document.getElementById('timer-ring');
+  const timerText       = document.getElementById('timer-text');
+  const stopBtn         = document.getElementById('stop-btn');
+  const transcriptFinal = document.getElementById('transcript-final');
+  const transcriptInterim = document.getElementById('transcript-interim');
+  const transcriptBox   = document.getElementById('transcript-box');
+
+  let timerInterval   = null;
+  let secondsElapsed  = 0;
+  let mediaRecorder   = null;
+  let micStream       = null;   // kept separately to reliably stop mic tracks
+  let audioChunks     = [];
+  let finalTranscript = '';
+  let recognition     = null;
+
+  document.getElementById('activity-back-btn').addEventListener('click', () => {
+    stopActivity(false);          // stop everything but don't navigate to transcript
+    showOnly('role-section');
+  });
+
+  async function startFirstCandidateActivity(images) {
+    // Reset state
+    secondsElapsed  = 0;
+    finalTranscript = '';
+    audioChunks     = [];
+    transcriptFinal.textContent   = '';
+    transcriptInterim.textContent = '';
+    updateTimerDisplay();
+
+    // Populate images
+    activityImages.innerHTML = '';
+    images.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      activityImages.appendChild(div);
+    });
+
+    // Reset timer ring colour from any previous session
+    timerRing.style.stroke = '#48bb78';
+    timerText.style.fill   = '#2d3748';
+
+    const activityError = document.getElementById('activity-error');
+    activityError.style.display = 'none';
+
+    showOnly('activity-first');
+
+    // Start microphone + recording
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(micStream);
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.start();
+    } catch (err) {
+      activityError.textContent = `Microphone error: ${err.message} — please allow microphone access and try again.`;
+      activityError.style.display = 'block';
+    }
+
+    // Start speech recognition (transcription)
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      recognition = new SR();
+      recognition.lang = 'en-GB';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+          else interim += e.results[i][0].transcript;
+        }
+        transcriptFinal.textContent   = finalTranscript;
+        transcriptInterim.textContent = interim;
+        transcriptBox.scrollTop = transcriptBox.scrollHeight;
+      };
+
+      recognition.onerror = (e) => {
+        // 'aborted' fires normally when we call recognition.stop() — ignore it
+        if (e.error === 'aborted') return;
+        activityError.textContent = `Transcription error: "${e.error}". Try using Chrome or Edge, and ensure the page is served over HTTPS or localhost.`;
+        activityError.style.display = 'block';
+      };
+      recognition.onend = () => { if (timerInterval) recognition.start(); };
+      recognition.start();
+    } else {
+      transcriptFinal.textContent = '(Speech recognition not supported — use Chrome or Edge)';
+    }
+
+    // Start timer
+    timerInterval = setInterval(() => {
+      secondsElapsed++;
+      updateTimerDisplay();
+    }, 1000);
+
+    stopBtn.onclick = () => stopActivity(true);
+  }
+
+  function updateTimerDisplay() {
+    const mins = Math.floor(secondsElapsed / 60);
+    const secs = secondsElapsed % 60;
+    timerText.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    const progress = Math.min(secondsElapsed / SOFT_LIMIT, 1);
+    timerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+
+    if (secondsElapsed >= SOFT_LIMIT) {
+      timerRing.style.stroke = '#fc8181';
+      timerText.style.fill   = '#e53e3e';
+    } else if (secondsElapsed >= SOFT_LIMIT * 0.8) {
+      timerRing.style.stroke = '#f6ad55';
+      timerText.style.fill   = '#dd6b20';
+    }
+  }
+
+  function stopActivity(showResult = false) {
+    // 1. Stop timer
+    clearInterval(timerInterval);
+    timerInterval = null;
+
+    // 2. Stop speech recognition (prevent auto-restart first)
+    if (recognition) {
+      recognition.onend = null;
+      recognition.stop();
+      recognition = null;
+    }
+    transcriptInterim.textContent = '';
+
+    // 3. Stop MediaRecorder
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder = null;
+    }
+
+    // 4. Stop all microphone tracks — this closes the browser mic indicator
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+
+    // 5. Optionally navigate to transcript result
+    if (showResult) showTranscriptResult();
+  }
+
+  document.getElementById('transcript-restart-btn').addEventListener('click', () => showOnly('mode-section'));
+  document.getElementById('transcript-continue-btn').addEventListener('click', () => {
+    alert('Assessment — coming soon.');
+  });
+
+  function showTranscriptResult() {
+    const text     = finalTranscript.trim() || '(No speech detected)';
+    const duration = `${Math.floor(secondsElapsed / 60)}:${String(secondsElapsed % 60).padStart(2, '0')}`;
+    const date     = new Date().toISOString();
+
+    document.getElementById('result-transcript-text').textContent = text;
+    document.getElementById('result-duration').textContent = duration;
+
+    // ── Save to LocalStorage ────────────────────────────────────
+    const STORAGE_KEY = 'c1_transcripts';
+    const entry = { date, duration, transcript: text };
+    try {
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      existing.push(entry);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      document.getElementById('result-saved-badge').style.display = 'inline-block';
+    } catch (e) {
+      console.warn('Could not save to LocalStorage:', e);
+    }
+
+    // ── Download button ─────────────────────────────────────────
+    document.getElementById('transcript-download-btn').onclick = () => {
+      const content  = `C1 Speaking Test – Part 2\nDate: ${new Date(date).toLocaleString()}\nDuration: ${duration}\n\n${text}`;
+      const blob     = new Blob([content], { type: 'text/plain' });
+      const url      = URL.createObjectURL(blob);
+      const a        = document.createElement('a');
+      a.href         = url;
+      a.download     = `c1_transcript_${date.slice(0, 10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    showOnly('transcript-section');
+  }
+</script>
+</body>
+</html>
