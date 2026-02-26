@@ -1670,9 +1670,6 @@
 
   let timerInterval   = null;
   let secondsElapsed  = 0;
-  let mediaRecorder   = null;
-  let micStream       = null;   // kept separately to reliably stop mic tracks
-  let audioChunks     = [];
   let finalTranscript = '';
   let recognition     = null;
 
@@ -1681,11 +1678,10 @@
     showOnly('role-section');
   });
 
-  async function startFirstCandidateActivity(images) {
+  function startFirstCandidateActivity(images) {
     // Reset state
     secondsElapsed  = 0;
     finalTranscript = '';
-    audioChunks     = [];
     transcriptFinal.textContent   = '';
     transcriptInterim.textContent = '';
     updateTimerDisplay();
@@ -1708,17 +1704,6 @@
     activityError.style.display = 'none';
 
     showOnly('activity-first');
-
-    // Start microphone + recording
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(micStream);
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.start();
-    } catch (err) {
-      activityError.textContent = `Microphone error: ${err.message} — please allow microphone access and try again.`;
-      activityError.style.display = 'block';
-    }
 
     // Start speech recognition (transcription)
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1791,19 +1776,7 @@
     }
     transcriptInterim.textContent = '';
 
-    // 3. Stop MediaRecorder
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      mediaRecorder = null;
-    }
-
-    // 4. Stop all microphone tracks — this closes the browser mic indicator
-    if (micStream) {
-      micStream.getTracks().forEach(t => t.stop());
-      micStream = null;
-    }
-
-    // 5. Optionally navigate to transcript result
+    // 3. Optionally navigate to transcript result
     if (showResult) showTranscriptResult();
   }
 
@@ -2035,9 +2008,6 @@
   let appSpeechSeconds      = 0;
   let secondUserSeconds     = 0;
   let secondTimerInterval   = null;
-  let secondMicStream       = null;
-  let secondMediaRecorder   = null;
-  let secondAudioChunks     = [];
   let secondFinalTranscript = '';
   let secondRecognition     = null;
   let currentUtterance      = null;
@@ -2168,7 +2138,7 @@
   }
 
   // ── User speaking (record + transcribe) ─────────────────────────
-  async function startUserSpeaking() {
+  function startUserSpeaking() {
     secondUserSeconds     = 0;
     secondFinalTranscript = '';
     secondAudioChunks     = [];
@@ -2196,17 +2166,6 @@
     secondError.style.display = 'none';
 
     showOnly('second-speaking-section');
-
-    // Microphone
-    try {
-      secondMicStream       = await navigator.mediaDevices.getUserMedia({ audio: true });
-      secondMediaRecorder   = new MediaRecorder(secondMicStream);
-      secondMediaRecorder.ondataavailable = e => secondAudioChunks.push(e.data);
-      secondMediaRecorder.start();
-    } catch (err) {
-      secondError.textContent = `Microphone error: ${err.message} — please allow microphone access and try again.`;
-      secondError.style.display = 'block';
-    }
 
     // Speech recognition
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2275,15 +2234,6 @@
       secondRecognition = null;
     }
     secondTranscriptInterim.textContent = '';
-
-    if (secondMediaRecorder && secondMediaRecorder.state !== 'inactive') {
-      secondMediaRecorder.stop();
-      secondMediaRecorder = null;
-    }
-    if (secondMicStream) {
-      secondMicStream.getTracks().forEach(t => t.stop());
-      secondMicStream = null;
-    }
 
     if (showResult) showSecondResult();
   }
