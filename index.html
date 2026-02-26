@@ -461,6 +461,48 @@
       font-size: 0.9rem;
       margin-bottom: 0.8rem;
     }
+
+    /* ── 2nd Candidate ──────────────────────────────────────────── */
+    .speaking-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #2b6cb0;
+      justify-content: center;
+    }
+
+    .speak-dot {
+      width: 11px; height: 11px;
+      background: #2b6cb0;
+      border-radius: 50%;
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+
+    .two-transcripts { display: flex; flex-direction: column; gap: 1.2rem; }
+
+    .transcript-block-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #718096;
+      margin-bottom: 0.4rem;
+    }
+
+    .skip-btn {
+      background: #fff;
+      border: 2px solid #3182ce;
+      color: #3182ce;
+      padding: 0.45rem 1.4rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .skip-btn:hover { background: #3182ce; color: #fff; }
   </style>
 </head>
 <body>
@@ -511,6 +553,7 @@
     </div>
     <div class="slots" id="upload-slots"></div>
     <p class="counter" id="upload-counter">Uploaded: <span>0</span> / 3</p>
+    <button class="btn hidden" id="upload-continue">Continue</button>
   </section>
 
   <!-- ④ Role selection -->
@@ -618,6 +661,116 @@
     <div class="result-actions">
       <button class="btn download-btn" id="transcript-download-btn">&#8595; Download .txt</button>
       <button class="btn" id="transcript-continue-btn">Continue</button>
+    </div>
+  </section>
+
+  <!-- ⑨ 2nd Candidate — listening to app -->
+  <section id="second-listening-section">
+    <div class="section-header">
+      <p class="step-label">2nd Candidate &mdash; Listen</p>
+      <div class="header-actions">
+        <button class="action-btn" id="listening-back-btn">&#8592; Change role</button>
+      </div>
+    </div>
+
+    <div class="activity-images" id="listening-images"></div>
+
+    <div class="activity-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="listen-timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#4299e1" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="listen-timer-text" x="50" y="57" text-anchor="middle"
+                font-size="20" font-weight="700" font-family="'Segoe UI',sans-serif"
+                fill="#2d3748">0:00</text>
+        </svg>
+      </div>
+
+      <div class="speaking-header">
+        <span class="speak-dot"></span>
+        <span>1st Candidate is speaking&hellip;</span>
+      </div>
+
+      <button class="skip-btn" id="listen-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <div class="transcript-live">
+      <p class="transcript-label">1st Candidate transcript</p>
+      <div class="transcript-box" id="listen-transcript-box"></div>
+    </div>
+  </section>
+
+  <!-- ⑩ 2nd Candidate — user speaking -->
+  <section id="second-speaking-section">
+    <div class="section-header">
+      <p class="step-label">2nd Candidate &mdash; Your turn</p>
+      <div class="header-actions"></div>
+    </div>
+
+    <div class="activity-images" id="second-speaking-images"></div>
+    <p class="error-msg" id="second-speaking-error"></p>
+
+    <div class="activity-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="second-timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#48bb78" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="second-timer-text" x="50" y="57" text-anchor="middle"
+                font-size="20" font-weight="700" font-family="'Segoe UI',sans-serif"
+                fill="#2d3748">0:30</text>
+        </svg>
+      </div>
+
+      <div class="rec-status">
+        <span class="rec-dot"></span>
+        <span>Recording&hellip;</span>
+      </div>
+
+      <button class="btn stop-btn" id="second-stop-btn">&#9209; Stop</button>
+    </div>
+
+    <div class="transcript-live">
+      <p class="transcript-label">Live transcript</p>
+      <div class="transcript-box" id="second-transcript-box">
+        <span id="second-transcript-final"></span><span class="interim" id="second-transcript-interim"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑪ 2nd Candidate — session result -->
+  <section id="second-result-section">
+    <div class="section-header">
+      <p class="step-label">Session complete</p>
+      <div class="header-actions">
+        <button class="action-btn" id="second-restart-btn">&#8635; Start again</button>
+      </div>
+    </div>
+
+    <div class="result-meta">
+      <span>App: <strong id="second-app-duration">—</strong></span>
+      <span>You: <strong id="second-user-duration">—</strong></span>
+      <span id="second-saved-badge" class="saved-badge" style="display:none">&#10003; Saved</span>
+    </div>
+
+    <div class="two-transcripts">
+      <div>
+        <p class="transcript-block-label">1st Candidate (app)</p>
+        <div class="transcript-box result-transcript-box" id="second-app-transcript-text"></div>
+      </div>
+      <div>
+        <p class="transcript-block-label">2nd Candidate (you)</p>
+        <div class="transcript-box result-transcript-box" id="second-user-transcript-text"></div>
+      </div>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn download-btn" id="second-download-btn">&#8595; Download .txt</button>
     </div>
   </section>
 
@@ -742,6 +895,7 @@
     uploadedImages.fill(null);
     uploadLabel.textContent = 'Upload 3 images';
     uploadCounter.innerHTML = `Uploaded: <span>0</span> / ${TOTAL}`;
+    uploadContinue.classList.add('hidden');
     buildUploadSlots();
   }
 
@@ -799,12 +953,15 @@
     slot.querySelector('.slot-placeholder').style.display = 'none';
   }
 
+  const uploadContinue = document.getElementById('upload-continue');
+  uploadContinue.addEventListener('click', () => showOnly('role-section'));
+
   function onUploadChange() {
     const count = uploadedImages.filter(Boolean).length;
     uploadCounter.innerHTML = `Uploaded: <span>${count}</span> / ${TOTAL}`;
     if (count === TOTAL) {
       allImages = uploadedImages.map(src => ({ src, creditHtml: null }));
-      showOnly('role-section');
+      uploadContinue.classList.remove('hidden');
     }
   }
 
@@ -924,7 +1081,7 @@
   // ════════════════════════════════════════════════════════════════
   function onActivityReady(role, chosenImages) {
     if (role === '1st') startFirstCandidateActivity(chosenImages);
-    else alert('2nd Candidate activity — coming soon.');
+    else startSecondCandidateActivity(chosenImages);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1117,6 +1274,359 @@
     };
 
     showOnly('transcript-section');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 2ND CANDIDATE ACTIVITY
+  // ════════════════════════════════════════════════════════════════
+  const SECOND_LISTEN_LIMIT = 60;
+  const SECOND_SPEAK_LIMIT  = 30;
+
+  const SPEECHES = {
+    'technology': `Both photographs centre on the theme of technology, though they capture it in very different contexts. The first image appears to show technology in a personal, everyday setting — perhaps someone using a device at home or in a relaxed environment. The second photograph, by contrast, places technology in a more professional or public context, suggesting how it shapes our working lives and social interactions. What strikes me most is how differently we relate to technology depending on the situation. In the first image, it seems to be a source of comfort or entertainment; in the second, it feels more purposeful — even indispensable. This raises an interesting question about whether technology serves us or whether, increasingly, we serve it. I think both images together highlight how deeply technology has embedded itself in every aspect of modern life, for better or worse.`,
+
+    'education school': `These two photographs both explore what learning looks like, but from quite different angles. The first seems to depict a formal, structured educational setting — a classroom or lecture environment where instruction follows a clear, traditional format. The second image suggests a more informal approach: perhaps a workshop, an outdoor activity, or some form of experiential learning. What I find interesting is the contrast in atmosphere. The first conveys order and discipline, which undoubtedly has value in terms of consistency and academic rigour. The second, however, feels more dynamic and student-centred, suggesting that engagement and relevance can sometimes matter more than structure. Modern education increasingly tries to combine both approaches, recognising that different learners thrive in different environments. I personally believe the most effective learning happens when both challenge and curiosity are present at the same time.`,
+
+    'environment nature': `Both images relate to the environment, but they seem to tell very different stories. The first photograph appears to show the natural world at its most striking — perhaps a landscape, a wild setting, or an ecosystem relatively untouched by human activity. The second image, on the other hand, brings in the human dimension: possibly urban development, pollution, or some form of environmental disruption. What I find powerful about this pairing is the implicit contrast between what the natural world can look like and what it increasingly has to contend with. Neither image is neutral — both invite a kind of reflection on our relationship with the planet. I think the tension between these two photographs captures something essential about the environmental debate: the beauty we stand to lose, and the choices that will determine whether we lose it.`,
+
+    'health fitness': `Both images connect to the theme of health and wellbeing, though they approach it differently. The first photograph seems to focus on physical activity — exercise, sport, or some form of movement that represents the more visible, measurable side of health. The second image appears to capture a different dimension: perhaps rest, mental wellbeing, or a quieter kind of self-care. What I find striking is how these two images together challenge the narrow view of health as simply fitness or physical appearance. True wellbeing, as we increasingly understand it, involves balance — between effort and recovery, between body and mind. Modern life can push people towards the performance-focused model in the first image, sometimes at the expense of what the second image represents. Both have value, and I think the most sustainable approach to health draws on elements of both.`,
+
+    'people working office': `Both photographs relate to the world of work, but they capture it from quite different perspectives. The first image appears to depict a conventional professional setting — an office or structured environment where people come together in a shared physical space. The second photograph hints at a more flexible or modern approach: perhaps remote working, an informal setting, or a non-traditional professional context. This contrast feels particularly significant given how dramatically work culture has shifted in recent years. The traditional model offers clear boundaries, face-to-face collaboration, and a defined structure to the working day. The more flexible model, meanwhile, offers autonomy and freedom, though it can blur the lines between work and personal life. I believe neither model is universally better — the best approach depends on the individual, the role, and what environment brings out the best in each person.`,
+
+    'travel tourism': `Both images connect to the theme of travel, though they seem to represent quite different travel experiences. The first photograph appears to capture the iconic side of travel — famous landmarks, dramatic landscapes, or the kind of image that ends up on a postcard. The second image feels more personal or intimate, perhaps focusing on local life, cultural interaction, or the quieter moments that define a journey. I think this distinction gets at something important about what we expect travel to do for us. The first kind of travel is about spectacle and experience — ticking things off, capturing memories. The second is more about understanding: encountering different ways of living and seeing the world from a new perspective. Most travellers want both, but I think the most meaningful trips tend to lean towards the second, even if the first is what draws us there initially.`,
+
+    'food cooking': `Both photographs explore the theme of food, but in very different ways. The first image appears to focus on the preparation side — cooking at home, perhaps, or some kind of craft involved in putting a meal together. The second photograph seems to capture the social dimension: eating out, sharing food, or experiencing it as part of a wider cultural or communal event. What I find interesting is how food is rarely ever just about nutrition. Whether we're cooking or dining, food is deeply bound up with identity, care, and connection. The first image suggests something personal and intentional — a choice to invest time in the act of eating well. The second suggests something more outward-looking: food as a way of experiencing other cultures or simply coming together. I think both images remind us that our relationship with food says a great deal about how we live.`,
+
+    'sport competition': `These two photographs both deal with sport, but they highlight very different aspects of what sport means and who it is for. The first image appears to focus on competition — perhaps a race, a match, or a high-pressure moment where performance and winning are at stake. The second photograph seems to capture a more recreational or community-oriented side of sport, where the emphasis is on participation, enjoyment, and social connection. I find this distinction really valuable. Elite competitive sport is inspiring — it sets standards, generates passion, and makes sport feel aspirational. But recreational sport arguably does more for everyday wellbeing, encouraging active lifestyles and bringing people together regardless of ability. A healthy sporting culture, I'd argue, makes room for both: it uses the excitement of competition to inspire participation, while keeping the barriers to entry as low as possible.`,
+
+    'family together': `Both photographs relate to family life, though they seem to capture it in quite different ways. The first image appears to depict a more formal or structured family setting — perhaps a significant occasion, a staged moment, or an image centred on togetherness and tradition. The second photograph feels more candid, showing family life as it actually is: unscripted, perhaps a little chaotic, but warm and authentic. What I find interesting is how these two images reflect different ideas about what family means. The first speaks to the rituals and roles that give families their shape — shared events and values that create continuity across generations. The second captures something more immediate: the daily reality of living alongside the people closest to you. I think families need their rituals, but the truest moments of connection often happen in the unplanned, ordinary spaces in between.`,
+
+    'city urban life': `Both photographs explore urban life, but they seem to focus on quite different aspects of the city experience. The first image appears to capture the energy and density of city living — the crowds, the pace, the sense that something is always happening. The second photograph seems to offer a more intimate or human-scale view: a neighbourhood, a quiet street, or a public space that feels lived-in and local. I find this contrast at the heart of what makes cities both exciting and challenging. The energy of the first image is what draws people to cities in the first place: opportunity, diversity, stimulation. But it can also feel overwhelming or impersonal. The second image suggests that what makes a city truly liveable is not just its scale or vibrancy, but the quality of the everyday spaces where people actually spend their lives.`,
+
+    'social media smartphone': `Both photographs relate to digital life and social media, though they seem to approach the subject from different angles. The first image appears to show someone deeply absorbed in their device — connected, perhaps, but also somewhat withdrawn from the world around them. The second photograph seems to explore either the positive side of digital communication, or the contrast between online and offline life. What makes this pairing interesting is the ambiguity it creates. Social media and smartphones are genuinely powerful tools for connection, creativity, and access to information. But the way we use them can also reinforce isolation, distract us from meaningful engagement, and affect our wellbeing in subtle ways. I don't think either image tells a simple story. What they do together is ask us to reflect on how consciously we're choosing to use these tools — and who, ultimately, is in control.`,
+
+    'art culture museum': `Both images connect to the theme of art and culture, but they represent it in quite different ways. The first photograph appears to focus on culture in an institutional setting — perhaps a museum, a gallery, or a formal performance space where art is preserved, curated, and presented to the public. The second image seems to capture something more grassroots or spontaneous: art in public spaces, or culture as something lived and experienced outside established venues. This distinction reflects a genuine tension within the cultural world. Institutions play a vital role in conserving heritage and providing access to significant works. But art also needs to break free of those boundaries — to meet people where they are and reflect the world as it is now. I believe the most vibrant cultural scenes find a way to honour both: the weight of tradition and the vitality of the present moment.`,
+  };
+
+  const SPEECH_FALLBACK = `Looking at these two photographs, what strikes me immediately is how differently they approach what seems to be a shared theme. The first image draws the eye to a particular atmosphere — there's something very specific about its mood and composition that invites reflection. The second photograph feels like a counterpoint: it takes a related subject but presents it from a quite different angle, in terms of setting, tone, or what it suggests about the people involved. What I find interesting is that neither image tells a complete story on its own — it's the comparison that creates meaning. Together, they highlight contrasts that go beyond the purely visual: differences in mood, perhaps, or in what kind of life each image implies. I'd say the second feels slightly more thought-provoking to me, though both raise questions I'd genuinely want to explore in more depth.`;
+
+  function generateSpeech(topic) {
+    return (topic && SPEECHES[topic.query]) ? SPEECHES[topic.query] : SPEECH_FALLBACK;
+  }
+
+  // ── State ────────────────────────────────────────────────────────
+  let secondChosen          = [];
+  let appSpeechText         = '';
+  let appSpeechSeconds      = 0;
+  let secondUserSeconds     = 0;
+  let secondTimerInterval   = null;
+  let secondMicStream       = null;
+  let secondMediaRecorder   = null;
+  let secondAudioChunks     = [];
+  let secondFinalTranscript = '';
+  let secondRecognition     = null;
+  let currentUtterance      = null;
+
+  // ── DOM refs ─────────────────────────────────────────────────────
+  const listenTimerRing     = document.getElementById('listen-timer-ring');
+  const listenTimerText     = document.getElementById('listen-timer-text');
+  const listenTranscriptBox = document.getElementById('listen-transcript-box');
+  const secondTimerRing     = document.getElementById('second-timer-ring');
+  const secondTimerText     = document.getElementById('second-timer-text');
+  const secondTranscriptFinal   = document.getElementById('second-transcript-final');
+  const secondTranscriptInterim = document.getElementById('second-transcript-interim');
+  const secondTranscriptBox     = document.getElementById('second-transcript-box');
+
+  // ── Event listeners ──────────────────────────────────────────────
+  document.getElementById('listening-back-btn').addEventListener('click', () => {
+    stopAppSpeech();
+    showOnly('role-section');
+  });
+
+  document.getElementById('listen-skip-btn').addEventListener('click', () => {
+    stopAppSpeech();
+    startUserSpeaking();
+  });
+
+  document.getElementById('second-stop-btn').addEventListener('click', () => {
+    stopUserSpeaking(true);
+  });
+
+  document.getElementById('second-restart-btn').addEventListener('click', () => showOnly('mode-section'));
+  document.getElementById('second-download-btn').addEventListener('click', downloadSecondResult);
+
+  // ── Entry point ──────────────────────────────────────────────────
+  function startSecondCandidateActivity(images) {
+    secondChosen     = images;
+    appSpeechText    = generateSpeech(currentTopic);
+    appSpeechSeconds = 0;
+
+    // Populate listening images
+    const listeningImages = document.getElementById('listening-images');
+    listeningImages.innerHTML = '';
+    images.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      listeningImages.appendChild(div);
+    });
+
+    listenTranscriptBox.textContent = '';
+    listenTimerRing.style.stroke = '#4299e1';
+    listenTimerRing.style.strokeDashoffset = CIRCUMFERENCE;
+    listenTimerText.textContent = '0:00';
+
+    showOnly('second-listening-section');
+    startAppSpeech();
+  }
+
+  // ── App speaking (TTS) ───────────────────────────────────────────
+  function startAppSpeech() {
+    if (!window.speechSynthesis) {
+      listenTranscriptBox.textContent = appSpeechText + '\n\n(Text-to-speech not supported in this browser — read the transcript above and click Skip when ready.)';
+      return;
+    }
+
+    // Timer counting up
+    secondTimerInterval = setInterval(() => {
+      appSpeechSeconds++;
+      const progress = Math.min(appSpeechSeconds / SECOND_LISTEN_LIMIT, 1);
+      listenTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+      const m = Math.floor(appSpeechSeconds / 60);
+      const s = appSpeechSeconds % 60;
+      listenTimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    }, 1000);
+
+    currentUtterance = new SpeechSynthesisUtterance(appSpeechText);
+    currentUtterance.lang = 'en-GB';
+    currentUtterance.rate = 0.95;
+
+    // Pick best voice
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
+                  || voices.find(v => v.lang === 'en-GB')
+                  || voices.find(v => v.lang.startsWith('en'));
+      if (voice) currentUtterance.voice = voice;
+    };
+
+    if (window.speechSynthesis.getVoices().length) {
+      assignVoice();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+    }
+
+    // Word-by-word transcript reveal
+    currentUtterance.onboundary = (e) => {
+      if (e.name === 'word') {
+        const revealed = appSpeechText.slice(0, e.charIndex + (e.charLength || 1));
+        listenTranscriptBox.textContent = revealed;
+        listenTranscriptBox.scrollTop = listenTranscriptBox.scrollHeight;
+      }
+    };
+
+    currentUtterance.onend = () => {
+      clearInterval(secondTimerInterval);
+      secondTimerInterval = null;
+      listenTranscriptBox.textContent = appSpeechText;
+      setTimeout(() => startUserSpeaking(), 1500);
+    };
+
+    currentUtterance.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      console.warn('TTS error:', e.error);
+      clearInterval(secondTimerInterval);
+      secondTimerInterval = null;
+      listenTranscriptBox.textContent = appSpeechText;
+      startUserSpeaking();
+    };
+
+    window.speechSynthesis.speak(currentUtterance);
+  }
+
+  function stopAppSpeech() {
+    clearInterval(secondTimerInterval);
+    secondTimerInterval = null;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    currentUtterance = null;
+  }
+
+  // ── User speaking (record + transcribe) ─────────────────────────
+  async function startUserSpeaking() {
+    secondUserSeconds     = 0;
+    secondFinalTranscript = '';
+    secondAudioChunks     = [];
+    secondTranscriptFinal.textContent   = '';
+    secondTranscriptInterim.textContent = '';
+
+    // Populate images
+    const speakingImages = document.getElementById('second-speaking-images');
+    speakingImages.innerHTML = '';
+    secondChosen.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      speakingImages.appendChild(div);
+    });
+
+    // Reset timer display
+    secondTimerRing.style.stroke = '#48bb78';
+    secondTimerRing.style.strokeDashoffset = CIRCUMFERENCE;
+    secondTimerText.style.fill  = '#2d3748';
+    secondTimerText.textContent = '0:30';
+
+    const secondError = document.getElementById('second-speaking-error');
+    secondError.style.display = 'none';
+
+    showOnly('second-speaking-section');
+
+    // Microphone
+    try {
+      secondMicStream       = await navigator.mediaDevices.getUserMedia({ audio: true });
+      secondMediaRecorder   = new MediaRecorder(secondMicStream);
+      secondMediaRecorder.ondataavailable = e => secondAudioChunks.push(e.data);
+      secondMediaRecorder.start();
+    } catch (err) {
+      secondError.textContent = `Microphone error: ${err.message} — please allow microphone access and try again.`;
+      secondError.style.display = 'block';
+    }
+
+    // Speech recognition
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      secondRecognition = new SR();
+      secondRecognition.lang = 'en-GB';
+      secondRecognition.continuous = true;
+      secondRecognition.interimResults = true;
+
+      secondRecognition.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) secondFinalTranscript += e.results[i][0].transcript + ' ';
+          else interim += e.results[i][0].transcript;
+        }
+        secondTranscriptFinal.textContent   = secondFinalTranscript;
+        secondTranscriptInterim.textContent = interim;
+        secondTranscriptBox.scrollTop = secondTranscriptBox.scrollHeight;
+      };
+
+      secondRecognition.onerror = (e) => {
+        if (e.error === 'aborted') return;
+        secondError.textContent = `Transcription error: "${e.error}". Try Chrome or Edge, and ensure the page is served over HTTPS or localhost.`;
+        secondError.style.display = 'block';
+      };
+
+      secondRecognition.onend = () => { if (secondTimerInterval) secondRecognition.start(); };
+      secondRecognition.start();
+    } else {
+      secondTranscriptFinal.textContent = '(Speech recognition not supported — use Chrome or Edge)';
+    }
+
+    // Countdown timer
+    secondTimerInterval = setInterval(() => {
+      secondUserSeconds++;
+      updateSecondUserTimer();
+      if (secondUserSeconds >= SECOND_SPEAK_LIMIT) stopUserSpeaking(true);
+    }, 1000);
+  }
+
+  function updateSecondUserTimer() {
+    const remaining = Math.max(SECOND_SPEAK_LIMIT - secondUserSeconds, 0);
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    secondTimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+
+    const progress = Math.min(secondUserSeconds / SECOND_SPEAK_LIMIT, 1);
+    secondTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+
+    if (secondUserSeconds >= SECOND_SPEAK_LIMIT) {
+      secondTimerRing.style.stroke = '#fc8181';
+      secondTimerText.style.fill   = '#e53e3e';
+    } else if (secondUserSeconds >= SECOND_SPEAK_LIMIT * 0.8) {
+      secondTimerRing.style.stroke = '#f6ad55';
+      secondTimerText.style.fill   = '#dd6b20';
+    }
+  }
+
+  function stopUserSpeaking(showResult) {
+    clearInterval(secondTimerInterval);
+    secondTimerInterval = null;
+
+    if (secondRecognition) {
+      secondRecognition.onend = null;
+      secondRecognition.stop();
+      secondRecognition = null;
+    }
+    secondTranscriptInterim.textContent = '';
+
+    if (secondMediaRecorder && secondMediaRecorder.state !== 'inactive') {
+      secondMediaRecorder.stop();
+      secondMediaRecorder = null;
+    }
+    if (secondMicStream) {
+      secondMicStream.getTracks().forEach(t => t.stop());
+      secondMicStream = null;
+    }
+
+    if (showResult) showSecondResult();
+  }
+
+  // ── Result ───────────────────────────────────────────────────────
+  function showSecondResult() {
+    const userText   = secondFinalTranscript.trim() || '(No speech detected)';
+    const appDur     = `${Math.floor(appSpeechSeconds / 60)}:${String(appSpeechSeconds % 60).padStart(2, '0')}`;
+    const userDur    = `${Math.floor(secondUserSeconds / 60)}:${String(secondUserSeconds % 60).padStart(2, '0')}`;
+    const date       = new Date().toISOString();
+    const topicLabel = currentTopic ? currentTopic.label : 'Custom images';
+
+    document.getElementById('second-app-transcript-text').textContent = appSpeechText;
+    document.getElementById('second-user-transcript-text').textContent = userText;
+    document.getElementById('second-app-duration').textContent  = appDur;
+    document.getElementById('second-user-duration').textContent = userDur;
+
+    const STORAGE_KEY = 'c1_transcripts';
+    const entry = { date, role: '2nd', topic: topicLabel, appDuration: appDur, appTranscript: appSpeechText, userDuration: userDur, userTranscript: userText };
+    try {
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      existing.push(entry);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      document.getElementById('second-saved-badge').style.display = 'inline-block';
+    } catch (e) {
+      console.warn('Could not save to localStorage:', e);
+    }
+
+    showOnly('second-result-section');
+  }
+
+  function downloadSecondResult() {
+    const appText    = document.getElementById('second-app-transcript-text').textContent;
+    const userText   = document.getElementById('second-user-transcript-text').textContent;
+    const appDur     = document.getElementById('second-app-duration').textContent;
+    const userDur    = document.getElementById('second-user-duration').textContent;
+    const date       = new Date().toISOString();
+    const topicLabel = currentTopic ? currentTopic.label : 'Custom images';
+
+    const content = [
+      `C1 Speaking Test \u2013 Part 2 (2nd Candidate)`,
+      `Date:  ${new Date(date).toLocaleString()}`,
+      `Topic: ${topicLabel}`,
+      ``,
+      `\u2500\u2500\u2500 1st Candidate (App) \u2014 Duration: ${appDur} \u2500\u2500\u2500`,
+      appText,
+      ``,
+      `\u2500\u2500\u2500 2nd Candidate (You) \u2014 Duration: ${userDur} \u2500\u2500\u2500`,
+      userText,
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `c1_2nd_candidate_${date.slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
