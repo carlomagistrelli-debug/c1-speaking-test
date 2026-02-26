@@ -630,6 +630,43 @@
     <button class="btn" id="display-continue">Continue</button>
   </section>
 
+  <!-- ⑤-A Examiner prompt (2nd Candidate scenario) -->
+  <section id="examiner-prompt-2nd-section">
+    <div class="section-header">
+      <p class="step-label">Examiner&rsquo;s task</p>
+      <div class="header-actions">
+        <button class="action-btn" id="ep2-back-btn">&#8592; Change role</button>
+      </div>
+    </div>
+
+    <div class="activity-images" id="ep2-images"></div>
+
+    <p class="sub-label">Examiner (to 1st Candidate)</p>
+    <div class="examiner-box" id="ep2-prompt-box"></div>
+
+    <div class="activity-controls" id="ep2-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="ep2-timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#4299e1" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="ep2-timer-text" x="50" y="57" text-anchor="middle"
+                font-size="20" font-weight="700" font-family="'Segoe UI',sans-serif"
+                fill="#2d3748">0:00</text>
+        </svg>
+      </div>
+      <div class="speaking-header">
+        <span class="speak-dot"></span>
+        <span>Examiner speaking&hellip;</span>
+      </div>
+      <button class="skip-btn" id="ep2-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <button class="btn hidden" id="ep2-continue-btn">Continue &#8594;</button>
+  </section>
+
   <!-- ⑥ Pick 2 images (1st candidate only) -->
   <section id="pick-section">
     <div class="section-header">
@@ -814,6 +851,29 @@
       <p class="transcript-label">1st Candidate transcript</p>
       <div class="transcript-box" id="listen-transcript-box"></div>
     </div>
+  </section>
+
+  <!-- ⑩-A Examiner's question to 2nd Candidate -->
+  <section id="examiner-question-2nd-section">
+    <div class="section-header">
+      <p class="step-label">Examiner&rsquo;s question</p>
+      <div class="header-actions"></div>
+    </div>
+
+    <div class="activity-images" id="eq2-images"></div>
+
+    <p class="sub-label">Examiner (to you)</p>
+    <div class="examiner-box" id="eq2-question-box"></div>
+
+    <div class="activity-controls" id="eq2-controls">
+      <div class="speaking-header">
+        <span class="speak-dot"></span>
+        <span>Examiner speaking&hellip;</span>
+      </div>
+      <button class="skip-btn" id="eq2-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <button class="btn hidden" id="eq2-start-btn">&#9654; Start Speaking</button>
   </section>
 
   <!-- ⑩ 2nd Candidate — user speaking -->
@@ -1115,7 +1175,7 @@
   document.getElementById('display-back-btn').addEventListener('click', () => showOnly('role-section'));
 
   document.getElementById('display-continue').addEventListener('click', () => {
-    onActivityReady('2nd', displayChosen);
+    showExaminerPrompt2nd(displayChosen);
   });
 
   function showDisplaySection(chosen) {
@@ -1764,7 +1824,7 @@
 
   document.getElementById('listen-skip-btn').addEventListener('click', () => {
     stopAppSpeech();
-    startUserSpeaking();
+    showExaminerQuestion2nd();
   });
 
   document.getElementById('second-stop-btn').addEventListener('click', () => {
@@ -1849,7 +1909,7 @@
       clearInterval(secondTimerInterval);
       secondTimerInterval = null;
       listenTranscriptBox.textContent = appSpeechText;
-      setTimeout(() => startUserSpeaking(), 1500);
+      setTimeout(() => showExaminerQuestion2nd(), 1500);
     };
 
     currentUtterance.onerror = (e) => {
@@ -1858,7 +1918,7 @@
       clearInterval(secondTimerInterval);
       secondTimerInterval = null;
       listenTranscriptBox.textContent = appSpeechText;
-      startUserSpeaking();
+      showExaminerQuestion2nd();
     };
 
     window.speechSynthesis.speak(currentUtterance);
@@ -2046,6 +2106,217 @@
     a.download = `c1_2nd_candidate_${date.slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // EXAMINER PROMPT 2ND SECTION  (⑤-A — 2nd Candidate scenario)
+  // Examiner reads the task to the 1st candidate (app); user watches.
+  // ════════════════════════════════════════════════════════════════
+  let secondCandidateImages = [];
+
+  const ep2TimerRing   = document.getElementById('ep2-timer-ring');
+  const ep2TimerText   = document.getElementById('ep2-timer-text');
+  const ep2PromptBox   = document.getElementById('ep2-prompt-box');
+  const ep2ContinueBtn = document.getElementById('ep2-continue-btn');
+
+  let ep2Utterance     = null;
+  let ep2TimerInterval = null;
+  let ep2Seconds       = 0;
+
+  document.getElementById('ep2-back-btn').addEventListener('click', () => {
+    stopEp2Speech();
+    showOnly('role-section');
+  });
+
+  document.getElementById('ep2-skip-btn').addEventListener('click', () => {
+    stopEp2Speech();
+    ep2PromptBox.textContent = getExaminerPrompt(currentTopic).task;
+    revealEp2ContinueBtn();
+  });
+
+  ep2ContinueBtn.addEventListener('click', () => {
+    startSecondCandidateActivity(secondCandidateImages);
+  });
+
+  function showExaminerPrompt2nd(images) {
+    secondCandidateImages = images;
+    const data = getExaminerPrompt(currentTopic);
+
+    const ep2Images = document.getElementById('ep2-images');
+    ep2Images.innerHTML = '';
+    images.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      ep2Images.appendChild(div);
+    });
+
+    ep2Seconds = 0;
+    ep2PromptBox.textContent = '';
+    ep2TimerRing.style.strokeDashoffset = CIRCUMFERENCE;
+    ep2TimerRing.style.stroke = '#4299e1';
+    ep2TimerText.textContent = '0:00';
+    ep2ContinueBtn.classList.add('hidden');
+    document.getElementById('ep2-controls').style.display = '';
+    document.getElementById('ep2-skip-btn').style.display = '';
+    document.querySelector('#examiner-prompt-2nd-section .speaking-header').style.display = '';
+
+    showOnly('examiner-prompt-2nd-section');
+    startEp2Speech(data.task);
+  }
+
+  function startEp2Speech(text) {
+    if (!window.speechSynthesis) {
+      ep2PromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
+      revealEp2ContinueBtn();
+      return;
+    }
+
+    ep2TimerInterval = setInterval(() => {
+      ep2Seconds++;
+      const m = Math.floor(ep2Seconds / 60);
+      const s = ep2Seconds % 60;
+      ep2TimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      ep2TimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(ep2Seconds / 60, 1));
+    }, 1000);
+
+    ep2Utterance = new SpeechSynthesisUtterance(text);
+    ep2Utterance.lang = 'en-GB';
+    ep2Utterance.rate = 0.95;
+
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
+                  || voices.find(v => v.lang === 'en-GB')
+                  || voices.find(v => v.lang.startsWith('en'));
+      if (voice) ep2Utterance.voice = voice;
+    };
+    if (window.speechSynthesis.getVoices().length) assignVoice();
+    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+
+    ep2Utterance.onboundary = (e) => {
+      if (e.name === 'word') {
+        ep2PromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
+        ep2PromptBox.scrollTop = ep2PromptBox.scrollHeight;
+      }
+    };
+    ep2Utterance.onend = () => {
+      clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+      ep2PromptBox.textContent = text;
+      revealEp2ContinueBtn();
+    };
+    ep2Utterance.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+      ep2PromptBox.textContent = text;
+      revealEp2ContinueBtn();
+    };
+
+    window.speechSynthesis.speak(ep2Utterance);
+  }
+
+  function stopEp2Speech() {
+    clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    ep2Utterance = null;
+  }
+
+  function revealEp2ContinueBtn() {
+    document.getElementById('ep2-controls').style.display = 'none';
+    ep2ContinueBtn.classList.remove('hidden');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // EXAMINER QUESTION 2ND SECTION  (⑩-A — before user speaks)
+  // Examiner addresses the 2nd Candidate (user) with a brief question.
+  // ════════════════════════════════════════════════════════════════
+  const eq2QuestionBox = document.getElementById('eq2-question-box');
+  const eq2StartBtn    = document.getElementById('eq2-start-btn');
+
+  let eq2Utterance = null;
+
+  document.getElementById('eq2-skip-btn').addEventListener('click', () => {
+    stopEq2Speech();
+    eq2QuestionBox.textContent = 'Thank you. ' + getExaminerPrompt(currentTopic).question2nd;
+    revealEq2StartBtn();
+  });
+
+  eq2StartBtn.addEventListener('click', () => {
+    startUserSpeaking();
+  });
+
+  function showExaminerQuestion2nd() {
+    const data = getExaminerPrompt(currentTopic);
+    const questionText = 'Thank you. ' + data.question2nd;
+
+    const eq2Images = document.getElementById('eq2-images');
+    eq2Images.innerHTML = '';
+    secondCandidateImages.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      eq2Images.appendChild(div);
+    });
+
+    eq2QuestionBox.textContent = '';
+    eq2StartBtn.classList.add('hidden');
+    document.getElementById('eq2-controls').style.display = '';
+    document.getElementById('eq2-skip-btn').style.display = '';
+    document.querySelector('#examiner-question-2nd-section .speaking-header').style.display = '';
+
+    showOnly('examiner-question-2nd-section');
+    startEq2Speech(questionText);
+  }
+
+  function startEq2Speech(text) {
+    if (!window.speechSynthesis) {
+      eq2QuestionBox.textContent = text + '\n\n(Text-to-speech not supported — read the question above and click Skip.)';
+      revealEq2StartBtn();
+      return;
+    }
+
+    eq2Utterance = new SpeechSynthesisUtterance(text);
+    eq2Utterance.lang = 'en-GB';
+    eq2Utterance.rate = 0.95;
+
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
+                  || voices.find(v => v.lang === 'en-GB')
+                  || voices.find(v => v.lang.startsWith('en'));
+      if (voice) eq2Utterance.voice = voice;
+    };
+    if (window.speechSynthesis.getVoices().length) assignVoice();
+    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+
+    eq2Utterance.onboundary = (e) => {
+      if (e.name === 'word') {
+        eq2QuestionBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
+      }
+    };
+    eq2Utterance.onend = () => {
+      eq2QuestionBox.textContent = text;
+      revealEq2StartBtn();
+    };
+    eq2Utterance.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      eq2QuestionBox.textContent = text;
+      revealEq2StartBtn();
+    };
+
+    window.speechSynthesis.speak(eq2Utterance);
+  }
+
+  function stopEq2Speech() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    eq2Utterance = null;
+  }
+
+  function revealEq2StartBtn() {
+    document.getElementById('eq2-controls').style.display = 'none';
+    eq2StartBtn.classList.remove('hidden');
   }
 </script>
 </body>
