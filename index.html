@@ -541,6 +541,103 @@
       margin-bottom: 1.2rem;
       text-align: center;
     }
+
+    /* ── Assessment section ──────────────────────────────────────── */
+    .assess-stats {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 1.4rem;
+    }
+
+    .assess-stat {
+      background: #ebf8ff;
+      border: 1px solid #90cdf4;
+      border-radius: 8px;
+      padding: 0.45rem 1rem;
+      font-size: 0.88rem;
+      color: #2c5282;
+    }
+
+    .assess-block {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .assess-block-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #4a5568;
+      margin-bottom: 0.9rem;
+    }
+
+    .assess-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #a0aec0; }
+
+    .checklist-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      margin-bottom: 0.65rem;
+      font-size: 0.92rem;
+      color: #4a5568;
+      cursor: pointer;
+    }
+
+    .checklist-item input[type="checkbox"] {
+      margin-top: 0.2rem;
+      width: 16px; height: 16px;
+      accent-color: #2b6cb0;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .scale-item { margin-bottom: 1.2rem; }
+    .scale-item:last-child { margin-bottom: 0; }
+
+    .scale-label { font-size: 0.9rem; font-weight: 700; color: #2d3748; margin-bottom: 0.2rem; }
+    .scale-sub   { font-size: 0.78rem; color: #718096; margin-bottom: 0.55rem; }
+
+    .scale-bands { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    .scale-band-btn {
+      width: 40px; height: 40px;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+      background: #f7fafc;
+      font-size: 0.95rem; font-weight: 700;
+      color: #718096;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    .scale-band-btn:hover   { border-color: #3182ce; color: #3182ce; background: #ebf8ff; }
+    .scale-band-btn.selected { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+
+    .scale-descriptor {
+      margin-top: 0.45rem;
+      font-size: 0.82rem;
+      color: #4a5568;
+      font-style: italic;
+      min-height: 1.3em;
+    }
+
+    .assess-summary {
+      background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%);
+      border: 2px solid #90cdf4;
+      border-radius: 14px;
+      padding: 1.4rem;
+      text-align: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .assess-summary-band { font-size: 2rem; font-weight: 700; color: #2b4a7e; }
+    .assess-summary-sub  { font-size: 0.92rem; color: #4a5568; margin-top: 0.3rem; }
   </style>
 </head>
 <body>
@@ -944,6 +1041,43 @@
 
     <div class="result-actions">
       <button class="btn download-btn" id="second-download-btn">&#8595; Download .txt</button>
+      <button class="btn" id="second-assess-btn">Assess my performance &#8594;</button>
+    </div>
+  </section>
+
+  <!-- Assessment -->
+  <section id="assessment-section">
+    <div class="section-header">
+      <p class="step-label">Performance Assessment</p>
+      <div class="header-actions">
+        <button class="action-btn" id="assess-restart-btn">&#8635; Start again</button>
+      </div>
+    </div>
+
+    <div class="assess-stats" id="assess-stats"></div>
+
+    <div style="margin-bottom:1.4rem">
+      <p class="transcript-label">Your transcript</p>
+      <div class="transcript-box result-transcript-box" id="assess-transcript-display"></div>
+    </div>
+
+    <div class="assess-block">
+      <p class="assess-block-title">Task checklist</p>
+      <div id="assess-checklist"></div>
+    </div>
+
+    <div class="assess-block">
+      <p class="assess-block-title">Self-assessment bands <span class="assess-hint">(select 0&ndash;5 for each scale)</span></p>
+      <div id="assess-scales"></div>
+    </div>
+
+    <div class="assess-summary" id="assess-summary" style="display:none">
+      <div class="assess-summary-band" id="assess-band-display"></div>
+      <p class="assess-summary-sub" id="assess-cefr-label"></p>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn download-btn" id="assess-download-btn">&#8595; Download assessment</button>
     </div>
   </section>
 
@@ -1387,7 +1521,7 @@
   });
 
   saContinueBtn.addEventListener('click', () => {
-    alert('Assessment — coming soon.');
+    showAssessment('1st', finalTranscript.trim() || '(No speech detected)', secondsElapsed);
   });
 
   function showSecondAnswerSection() {
@@ -1788,6 +1922,74 @@
   function getExaminerPrompt(topic) {
     return (topic && EXAMINER_PROMPTS[topic.query]) ? EXAMINER_PROMPTS[topic.query] : EXAMINER_PROMPT_FALLBACK;
   }
+
+  // ════════════════════════════════════════════════════════════════
+  // ASSESSMENT DATA
+  // ════════════════════════════════════════════════════════════════
+  const CHECKLIST = {
+    '1st': [
+      "I compared the photos (not just described them separately)",
+      "I speculated about what the photos suggest ('might', 'could', 'seems to'…)",
+      "I addressed the specific question at the end of my turn",
+      "I maintained continuous speech for approximately 1 minute",
+    ],
+    '2nd': [
+      "I directly answered the examiner's question",
+      "I gave a personal perspective, not just repeating the 1st candidate",
+      "I kept my response concise and focused (~30 seconds)",
+    ],
+  };
+
+  const SCALES = [
+    {
+      id: 'gv', label: 'Grammar &amp; Vocabulary',
+      desc: 'Range and accuracy of structures; vocabulary range and appropriacy',
+      bands: [
+        'No language produced',
+        'Very limited range; frequent errors impede communication',
+        'Limited range; errors sometimes impede communication',
+        'Adequate range but relies on simple structures; some errors',
+        'Good range; occasional errors; mostly appropriate and accurate',
+        'Wide range; accurate and appropriate; effective paraphrase',
+      ],
+    },
+    {
+      id: 'dm', label: 'Discourse Management',
+      desc: 'Length and coherence; development of ideas; use of connectors',
+      bands: [
+        'No rateable contribution',
+        'Very short; frequent incoherence',
+        'Short contributions; limited coherence or development',
+        'Adequate but limited development; some coherence issues',
+        'Generally coherent; uses connectors; mostly relevant and developed',
+        'Extended, coherent, well-developed; effective connectors throughout',
+      ],
+    },
+    {
+      id: 'pron', label: 'Pronunciation',
+      desc: 'Intelligibility; stress and intonation; individual sounds',
+      bands: [
+        'No rateable language',
+        'Low intelligibility; very difficult to understand',
+        'Limited phonological control; communication barely maintained',
+        'Generally intelligible; limited phonological control',
+        'Generally intelligible; some lapses in stress or intonation',
+        'Clearly intelligible throughout; natural stress and intonation',
+      ],
+    },
+    {
+      id: 'global', label: 'Global Achievement',
+      desc: 'Overall effectiveness in completing the communicative task',
+      bands: [
+        'Unable to attempt the task',
+        'Considerable difficulty; limited effectiveness',
+        'Some difficulty handling the task',
+        'Adequate performance despite some difficulties',
+        'Handles the task well; effective overall',
+        'Handles the task with ease; highly effective performance',
+      ],
+    },
+  ];
 
   function generateSpeech(topic) {
     return (topic && SPEECHES[topic.query]) ? SPEECHES[topic.query] : SPEECH_FALLBACK;
@@ -2317,6 +2519,172 @@
   function revealEq2StartBtn() {
     document.getElementById('eq2-controls').style.display = 'none';
     eq2StartBtn.classList.remove('hidden');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // ASSESSMENT SECTION
+  // ════════════════════════════════════════════════════════════════
+  let assessmentRole        = '';
+  let assessmentTranscript  = '';
+  let assessmentDurationSecs = 0;
+
+  document.getElementById('assess-restart-btn').addEventListener('click', () => showOnly('mode-section'));
+  document.getElementById('assess-download-btn').addEventListener('click', downloadAssessment);
+
+  document.getElementById('second-assess-btn').addEventListener('click', () => {
+    showAssessment('2nd', secondFinalTranscript.trim() || '(No speech detected)', secondUserSeconds);
+  });
+
+  function showAssessment(role, transcript, durationSecs) {
+    assessmentRole         = role;
+    assessmentTranscript   = transcript;
+    assessmentDurationSecs = durationSecs;
+
+    const topicLabel = currentTopic ? currentTopic.label : 'Custom images';
+    const roleLabel  = role === '1st' ? '1st Candidate' : '2nd Candidate';
+    const isEmpty    = transcript === '(No speech detected)';
+    const words      = isEmpty ? 0 : transcript.split(/\s+/).filter(Boolean).length;
+    const wpm        = (!isEmpty && durationSecs > 0) ? Math.round((words / durationSecs) * 60) : 0;
+    const durStr     = `${Math.floor(durationSecs / 60)}:${String(durationSecs % 60).padStart(2, '0')}`;
+    const targetNote = role === '1st' ? 'target: 120–160 words, 100–140 wpm'
+                                      : 'target: 55–75 words, 100–130 wpm';
+
+    // ── Stats ──────────────────────────────────────────────────────
+    document.getElementById('assess-stats').innerHTML =
+      `<div class="assess-stat">Role: <strong>${roleLabel}</strong></div>` +
+      `<div class="assess-stat">Topic: <strong>${topicLabel}</strong></div>` +
+      `<div class="assess-stat">Words: <strong>${words}</strong></div>` +
+      `<div class="assess-stat">Duration: <strong>${durStr}</strong></div>` +
+      (wpm > 0 ? `<div class="assess-stat">Rate: <strong>${wpm} wpm</strong>&ensp;<span style="font-size:0.78rem;color:#718096">(${targetNote})</span></div>` : '');
+
+    // ── Transcript ─────────────────────────────────────────────────
+    document.getElementById('assess-transcript-display').textContent = transcript;
+
+    // ── Checklist ──────────────────────────────────────────────────
+    const checklistEl = document.getElementById('assess-checklist');
+    checklistEl.innerHTML = '';
+    CHECKLIST[role].forEach((item, i) => {
+      const label = document.createElement('label');
+      label.className = 'checklist-item';
+      label.innerHTML = `<input type="checkbox" id="chk-${i}" /><span>${item}</span>`;
+      checklistEl.appendChild(label);
+    });
+
+    // ── Scales ─────────────────────────────────────────────────────
+    const scalesEl = document.getElementById('assess-scales');
+    scalesEl.innerHTML = '';
+    SCALES.forEach(scale => {
+      const div = document.createElement('div');
+      div.className = 'scale-item';
+      div.innerHTML =
+        `<div class="scale-label">${scale.label}</div>` +
+        `<div class="scale-sub">${scale.desc}</div>` +
+        `<div class="scale-bands">${
+          [0,1,2,3,4,5].map(n =>
+            `<button class="scale-band-btn" data-scale="${scale.id}" data-band="${n}">${n}</button>`
+          ).join('')
+        }</div>` +
+        `<div class="scale-descriptor" id="desc-${scale.id}"></div>`;
+      scalesEl.appendChild(div);
+    });
+
+    scalesEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.scale-band-btn');
+      if (!btn) return;
+      const scaleId = btn.dataset.scale;
+      const band    = parseInt(btn.dataset.band);
+      document.querySelectorAll(`.scale-band-btn[data-scale="${scaleId}"]`)
+              .forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const scale = SCALES.find(s => s.id === scaleId);
+      document.getElementById(`desc-${scaleId}`).textContent =
+        `Band ${band}: ${scale.bands[band]}`;
+      updateAssessmentSummary();
+    });
+
+    document.getElementById('assess-summary').style.display = 'none';
+    showOnly('assessment-section');
+  }
+
+  function updateAssessmentSummary() {
+    const selected = document.querySelectorAll('.scale-band-btn.selected');
+    if (selected.length < SCALES.length) return;
+    const avg = Array.from(selected).reduce((sum, b) => sum + parseInt(b.dataset.band), 0) / SCALES.length;
+    document.getElementById('assess-band-display').textContent = `Band ${avg.toFixed(1)}`;
+    document.getElementById('assess-cefr-label').textContent   =
+      `Approximate CEFR level: ${bandToCEFR(avg)}`;
+    document.getElementById('assess-summary').style.display = '';
+  }
+
+  function bandToCEFR(avg) {
+    if (avg >= 4.5) return 'C2';
+    if (avg >= 3.5) return 'C1';
+    if (avg >= 2.5) return 'B2';
+    if (avg >= 1.5) return 'B1';
+    if (avg >= 0.5) return 'A2';
+    return 'Below A2';
+  }
+
+  function downloadAssessment() {
+    const role       = assessmentRole === '1st' ? '1st Candidate' : '2nd Candidate';
+    const topicLabel = currentTopic ? currentTopic.label : 'Custom images';
+    const isEmpty    = assessmentTranscript === '(No speech detected)';
+    const words      = isEmpty ? 0 : assessmentTranscript.split(/\s+/).filter(Boolean).length;
+    const dursecs    = assessmentDurationSecs;
+    const durStr     = `${Math.floor(dursecs / 60)}:${String(dursecs % 60).padStart(2, '0')}`;
+    const wpm        = (!isEmpty && dursecs > 0) ? Math.round((words / dursecs) * 60) : 0;
+
+    const checklistLines = CHECKLIST[assessmentRole].map((item, i) => {
+      const checked = document.getElementById(`chk-${i}`)?.checked ? '\u2713' : '\u2717';
+      return `[${checked}] ${item}`;
+    }).join('\n');
+
+    const scaleLines = SCALES.map(scale => {
+      const btn = document.querySelector(`.scale-band-btn.selected[data-scale="${scale.id}"]`);
+      if (!btn) return `${scale.label.replace('&amp;', '&')}: not rated`;
+      const b = parseInt(btn.dataset.band);
+      return `${scale.label.replace('&amp;', '&')}: ${b}/5 \u2014 ${scale.bands[b]}`;
+    }).join('\n');
+
+    const selected    = document.querySelectorAll('.scale-band-btn.selected');
+    const summaryLine = selected.length === SCALES.length
+      ? (() => {
+          const avg = Array.from(selected).reduce((s, b) => s + parseInt(b.dataset.band), 0) / SCALES.length;
+          return `Overall band: ${avg.toFixed(1)} (${bandToCEFR(avg)})`;
+        })()
+      : 'Overall band: incomplete (rate all 4 scales first)';
+
+    const date = new Date().toISOString();
+    const lines = [
+      `C1 Speaking Test \u2013 Part 2 Assessment`,
+      `Date:  ${new Date(date).toLocaleString()}`,
+      `Role:  ${role}`,
+      `Topic: ${topicLabel}`,
+      ``,
+      `\u2500\u2500\u2500 AUTO STATS \u2500\u2500\u2500`,
+      `Words spoken:   ${words}`,
+      `Duration:       ${durStr}`,
+      wpm > 0 ? `Speaking rate:  ${wpm} wpm` : null,
+      ``,
+      `\u2500\u2500\u2500 TASK CHECKLIST \u2500\u2500\u2500`,
+      checklistLines,
+      ``,
+      `\u2500\u2500\u2500 SELF-ASSESSMENT BANDS (0\u20135) \u2500\u2500\u2500`,
+      scaleLines,
+      ``,
+      summaryLine,
+      ``,
+      `\u2500\u2500\u2500 YOUR TRANSCRIPT \u2500\u2500\u2500`,
+      assessmentTranscript,
+    ].filter(l => l !== null).join('\n');
+
+    const blob = new Blob([lines], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `c1_assessment_${date.slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
