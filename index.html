@@ -638,9 +638,42 @@
 
     .assess-summary-band { font-size: 2rem; font-weight: 700; color: #2b4a7e; }
     .assess-summary-sub  { font-size: 0.92rem; color: #4a5568; margin-top: 0.3rem; }
+
+    /* ── Compatibility banner ───────────────────────────────────── */
+    #compat-banner {
+      width: 100%;
+      background: #fffbeb;
+      border: 1.5px solid #f6ad55;
+      border-radius: 10px;
+      padding: 0.75rem 1.1rem;
+      margin-bottom: 1.4rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.93rem;
+      color: #7b4f0e;
+      line-height: 1.5;
+    }
+    #compat-banner.hidden { display: none; }
+    #compat-banner .compat-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 0.05rem; }
+    #compat-banner .compat-text { flex: 1; }
+    #compat-banner .compat-text strong { display: block; margin-bottom: 0.2rem; color: #92400e; }
+    #compat-dismiss {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; color: #b45309; padding: 0; flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
+
+<div id="compat-banner" class="hidden">
+  <span class="compat-icon">&#9888;&#65039;</span>
+  <div class="compat-text">
+    <strong id="compat-title"></strong>
+    <span id="compat-msg"></span>
+  </div>
+  <button id="compat-dismiss" title="Dismiss">&#x2715;</button>
+</div>
 
 <header>
   <h1>C1 Speaking Test &mdash; Part 2</h1>
@@ -1708,11 +1741,12 @@
 
       recognition.onerror = (e) => {
         // 'aborted' fires normally when we call recognition.stop() — ignore it
-        if (e.error === 'aborted') return;
+        // 'no-speech' is common on Android Chrome; onend will restart automatically
+        if (e.error === 'aborted' || e.error === 'no-speech') return;
         activityError.textContent = `Transcription error: "${e.error}". Try using Chrome or Edge, and ensure the page is served over HTTPS or localhost.`;
         activityError.style.display = 'block';
       };
-      recognition.onend = () => { if (timerInterval) recognition.start(); };
+      recognition.onend = () => { if (timerInterval) setTimeout(() => recognition.start(), 150); };
       recognition.start();
     } else {
       transcriptFinal.textContent = '(Speech recognition not supported — use Chrome or Edge)';
@@ -2194,12 +2228,12 @@
       };
 
       secondRecognition.onerror = (e) => {
-        if (e.error === 'aborted') return;
+        if (e.error === 'aborted' || e.error === 'no-speech') return;
         secondError.textContent = `Transcription error: "${e.error}". Try Chrome or Edge, and ensure the page is served over HTTPS or localhost.`;
         secondError.style.display = 'block';
       };
 
-      secondRecognition.onend = () => { if (secondTimerInterval) secondRecognition.start(); };
+      secondRecognition.onend = () => { if (secondTimerInterval) setTimeout(() => secondRecognition.start(), 150); };
       secondRecognition.start();
     } else {
       secondTranscriptFinal.textContent = '(Speech recognition not supported — use Chrome or Edge)';
@@ -2686,6 +2720,40 @@
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  /* ── Compatibility detection ─────────────────────────────────── */
+  (function checkCompat() {
+    const ua = navigator.userAgent;
+    const isIOS     = /iPhone|iPad|iPod/i.test(ua);
+    const isMobile  = isIOS || /Android.*Mobile|Android.*Chrome\/[.0-9]* Mobile/i.test(ua);
+    const noSpeech  = !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
+    const banner  = document.getElementById('compat-banner');
+    const title   = document.getElementById('compat-title');
+    const msg     = document.getElementById('compat-msg');
+    const dismiss = document.getElementById('compat-dismiss');
+
+    let titleText = '', msgText = '';
+
+    if (noSpeech) {
+      titleText = 'Speech recognition not supported';
+      msgText   = 'Your browser does not support the Web Speech API. Please open this app in Chrome or Edge on a desktop or laptop computer.';
+    } else if (isIOS) {
+      titleText = 'iOS detected — limited speech support';
+      msgText   = 'Speech recognition on iOS (Safari and Chrome) is unreliable and may stop mid-sentence. For the best experience, use Chrome or Edge on a desktop or laptop.';
+    } else if (isMobile) {
+      titleText = 'Mobile device detected';
+      msgText   = 'This app works best on a desktop or laptop with Chrome or Edge. Speech recognition may be less reliable on mobile.';
+    }
+
+    if (titleText) {
+      title.textContent = titleText;
+      msg.textContent   = msgText;
+      banner.classList.remove('hidden');
+    }
+
+    dismiss.addEventListener('click', () => banner.classList.add('hidden'));
+  })();
 </script>
 </body>
 </html>
