@@ -503,6 +503,44 @@
       transition: background 0.2s, color 0.2s;
     }
     .skip-btn:hover { background: #3182ce; color: #fff; }
+
+    /* ── Examiner prompt / answer box ───────────────────────────── */
+    .examiner-box {
+      background: #ebf8ff;
+      border: 1px solid #90cdf4;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      font-size: 0.95rem;
+      color: #2c5282;
+      line-height: 1.65;
+      margin-bottom: 1.2rem;
+      min-height: 56px;
+      overflow-y: auto;
+      max-height: 160px;
+    }
+
+    .sub-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #3182ce;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── Examiner question (static, red-tinted) ─────────────────── */
+    .question-box {
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 10px;
+      padding: 0.9rem 1.2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #822727;
+      line-height: 1.5;
+      margin-bottom: 1.2rem;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -603,6 +641,81 @@
     <div class="slots" id="pick-slots"></div>
     <p class="counter" id="pick-counter">Selected: <span>0</span> / 2</p>
     <button class="btn hidden" id="pick-continue" disabled>Continue</button>
+  </section>
+
+  <!-- ⑦-A Examiner prompt (1st Candidate) -->
+  <section id="examiner-prompt-section">
+    <div class="section-header">
+      <p class="step-label">Examiner&rsquo;s task</p>
+      <div class="header-actions">
+        <button class="action-btn" id="ep-back-btn">&#8592; Change images</button>
+      </div>
+    </div>
+
+    <div class="activity-images" id="ep-images"></div>
+
+    <p class="sub-label">Examiner</p>
+    <div class="examiner-box" id="ep-prompt-box"></div>
+
+    <div class="activity-controls" id="ep-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="ep-timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#4299e1" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="ep-timer-text" x="50" y="57" text-anchor="middle"
+                font-size="20" font-weight="700" font-family="'Segoe UI',sans-serif"
+                fill="#2d3748">0:00</text>
+        </svg>
+      </div>
+      <div class="speaking-header">
+        <span class="speak-dot"></span>
+        <span>Examiner speaking&hellip;</span>
+      </div>
+      <button class="skip-btn" id="ep-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <button class="btn hidden" id="ep-start-btn">&#9654; Start Speaking</button>
+  </section>
+
+  <!-- ⑧-B 2nd Candidate response (app) — after 1st candidate transcript -->
+  <section id="second-answer-section">
+    <div class="section-header">
+      <p class="step-label">2nd Candidate &mdash; Response</p>
+      <div class="header-actions"></div>
+    </div>
+
+    <div class="activity-images" id="sa-images"></div>
+
+    <p class="sub-label">Examiner&rsquo;s question to 2nd candidate</p>
+    <div class="question-box" id="sa-question-box"></div>
+
+    <p class="sub-label">2nd Candidate (app)</p>
+    <div class="examiner-box" id="sa-answer-box"></div>
+
+    <div class="activity-controls" id="sa-controls">
+      <div class="timer-wrap">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+          <circle id="sa-timer-ring" cx="50" cy="50" r="42" fill="none"
+                  stroke="#4299e1" stroke-width="7"
+                  stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                  stroke-linecap="round" transform="rotate(-90 50 50)"/>
+          <text id="sa-timer-text" x="50" y="57" text-anchor="middle"
+                font-size="20" font-weight="700" font-family="'Segoe UI',sans-serif"
+                fill="#2d3748">0:00</text>
+        </svg>
+      </div>
+      <div class="speaking-header">
+        <span class="speak-dot"></span>
+        <span>2nd Candidate speaking&hellip;</span>
+      </div>
+      <button class="skip-btn" id="sa-skip-btn">Skip &#8594;</button>
+    </div>
+
+    <button class="btn hidden" id="sa-continue-btn">Continue &#8594;</button>
   </section>
 
   <!-- ⑦ 1st Candidate — speaking activity -->
@@ -1073,8 +1186,238 @@
 
   pickContinue.addEventListener('click', () => {
     const chosen = [...pickSelected].map(i => allImages[i]);
-    onActivityReady('1st', chosen);
+    showExaminerPromptSection(chosen);
   });
+
+  // ════════════════════════════════════════════════════════════════
+  // EXAMINER PROMPT SECTION  (⑦-A — 1st Candidate)
+  // ════════════════════════════════════════════════════════════════
+  let firstChosenImages = [];   // persists through transcript → second-answer
+
+  const epTimerRing = document.getElementById('ep-timer-ring');
+  const epTimerText = document.getElementById('ep-timer-text');
+  const epPromptBox = document.getElementById('ep-prompt-box');
+  const epStartBtn  = document.getElementById('ep-start-btn');
+
+  let epUtterance     = null;
+  let epTimerInterval = null;
+  let epSeconds       = 0;
+
+  document.getElementById('ep-back-btn').addEventListener('click', () => {
+    stopEpSpeech();
+    showOnly('pick-section');
+  });
+
+  document.getElementById('ep-skip-btn').addEventListener('click', () => {
+    stopEpSpeech();
+    epPromptBox.textContent = getExaminerPrompt(currentTopic).task;
+    revealEpStartBtn();
+  });
+
+  epStartBtn.addEventListener('click', () => {
+    startFirstCandidateActivity(firstChosenImages);
+  });
+
+  function showExaminerPromptSection(chosen) {
+    firstChosenImages = chosen;
+    const data = getExaminerPrompt(currentTopic);
+
+    const epImages = document.getElementById('ep-images');
+    epImages.innerHTML = '';
+    chosen.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      epImages.appendChild(div);
+    });
+
+    epSeconds = 0;
+    epPromptBox.textContent = '';
+    epTimerRing.style.strokeDashoffset = CIRCUMFERENCE;
+    epTimerRing.style.stroke = '#4299e1';
+    epTimerText.textContent = '0:00';
+    epStartBtn.classList.add('hidden');
+    document.getElementById('ep-controls').style.display = '';
+    document.getElementById('ep-skip-btn').style.display = '';
+    document.querySelector('#examiner-prompt-section .speaking-header').style.display = '';
+
+    showOnly('examiner-prompt-section');
+    startEpSpeech(data.task);
+  }
+
+  function startEpSpeech(text) {
+    if (!window.speechSynthesis) {
+      epPromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
+      revealEpStartBtn();
+      return;
+    }
+
+    epTimerInterval = setInterval(() => {
+      epSeconds++;
+      const m = Math.floor(epSeconds / 60);
+      const s = epSeconds % 60;
+      epTimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      epTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(epSeconds / 60, 1));
+    }, 1000);
+
+    epUtterance = new SpeechSynthesisUtterance(text);
+    epUtterance.lang  = 'en-GB';
+    epUtterance.rate  = 0.95;
+
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
+                  || voices.find(v => v.lang === 'en-GB')
+                  || voices.find(v => v.lang.startsWith('en'));
+      if (voice) epUtterance.voice = voice;
+    };
+    if (window.speechSynthesis.getVoices().length) assignVoice();
+    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+
+    epUtterance.onboundary = (e) => {
+      if (e.name === 'word') {
+        epPromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
+        epPromptBox.scrollTop = epPromptBox.scrollHeight;
+      }
+    };
+    epUtterance.onend = () => {
+      clearInterval(epTimerInterval); epTimerInterval = null;
+      epPromptBox.textContent = text;
+      revealEpStartBtn();
+    };
+    epUtterance.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      clearInterval(epTimerInterval); epTimerInterval = null;
+      epPromptBox.textContent = text;
+      revealEpStartBtn();
+    };
+
+    window.speechSynthesis.speak(epUtterance);
+  }
+
+  function stopEpSpeech() {
+    clearInterval(epTimerInterval); epTimerInterval = null;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    epUtterance = null;
+  }
+
+  function revealEpStartBtn() {
+    document.getElementById('ep-controls').style.display = 'none';
+    epStartBtn.classList.remove('hidden');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // SECOND ANSWER SECTION  (⑧-B — app as 2nd Candidate)
+  // ════════════════════════════════════════════════════════════════
+  const saTimerRing   = document.getElementById('sa-timer-ring');
+  const saTimerText   = document.getElementById('sa-timer-text');
+  const saAnswerBox   = document.getElementById('sa-answer-box');
+  const saContinueBtn = document.getElementById('sa-continue-btn');
+  const SA_LIMIT      = 30;
+
+  let saUtterance     = null;
+  let saTimerInterval = null;
+  let saSeconds       = 0;
+
+  document.getElementById('sa-skip-btn').addEventListener('click', () => {
+    stopSaSpeech();
+    saAnswerBox.textContent = getExaminerPrompt(currentTopic).answer2nd;
+    revealSaContinueBtn();
+  });
+
+  saContinueBtn.addEventListener('click', () => {
+    alert('Assessment — coming soon.');
+  });
+
+  function showSecondAnswerSection() {
+    const data = getExaminerPrompt(currentTopic);
+    saSeconds = 0;
+
+    const saImages = document.getElementById('sa-images');
+    saImages.innerHTML = '';
+    firstChosenImages.forEach((img, i) => {
+      const div = document.createElement('div');
+      div.className = 'activity-img';
+      div.innerHTML = `<img src="${img.src}" alt="Image ${i + 1}" />
+        ${img.creditHtml ? `<div class="credit">${img.creditHtml}</div>` : ''}`;
+      saImages.appendChild(div);
+    });
+
+    document.getElementById('sa-question-box').textContent = data.question2nd;
+    saAnswerBox.textContent = '';
+    saTimerRing.style.strokeDashoffset = CIRCUMFERENCE;
+    saTimerRing.style.stroke = '#4299e1';
+    saTimerText.textContent = '0:00';
+    saContinueBtn.classList.add('hidden');
+    document.getElementById('sa-controls').style.display = '';
+    document.getElementById('sa-skip-btn').style.display = '';
+    document.querySelector('#second-answer-section .speaking-header').style.display = '';
+
+    showOnly('second-answer-section');
+    startSaSpeech(data.answer2nd);
+  }
+
+  function startSaSpeech(text) {
+    if (!window.speechSynthesis) {
+      saAnswerBox.textContent = text + '\n\n(Text-to-speech not supported — read the response above and click Skip.)';
+      revealSaContinueBtn();
+      return;
+    }
+
+    saTimerInterval = setInterval(() => {
+      saSeconds++;
+      const m = Math.floor(saSeconds / 60);
+      const s = saSeconds % 60;
+      saTimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      saTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(saSeconds / SA_LIMIT, 1));
+    }, 1000);
+
+    saUtterance = new SpeechSynthesisUtterance(text);
+    saUtterance.lang = 'en-GB';
+    saUtterance.rate = 0.95;
+
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
+                  || voices.find(v => v.lang === 'en-GB')
+                  || voices.find(v => v.lang.startsWith('en'));
+      if (voice) saUtterance.voice = voice;
+    };
+    if (window.speechSynthesis.getVoices().length) assignVoice();
+    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+
+    saUtterance.onboundary = (e) => {
+      if (e.name === 'word') {
+        saAnswerBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
+        saAnswerBox.scrollTop = saAnswerBox.scrollHeight;
+      }
+    };
+    saUtterance.onend = () => {
+      clearInterval(saTimerInterval); saTimerInterval = null;
+      saAnswerBox.textContent = text;
+      revealSaContinueBtn();
+    };
+    saUtterance.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      clearInterval(saTimerInterval); saTimerInterval = null;
+      saAnswerBox.textContent = text;
+      revealSaContinueBtn();
+    };
+
+    window.speechSynthesis.speak(saUtterance);
+  }
+
+  function stopSaSpeech() {
+    clearInterval(saTimerInterval); saTimerInterval = null;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    saUtterance = null;
+  }
+
+  function revealSaContinueBtn() {
+    document.getElementById('sa-controls').style.display = 'none';
+    saContinueBtn.classList.remove('hidden');
+  }
 
   // ════════════════════════════════════════════════════════════════
   // HAND-OFF TO ACTIVITY
@@ -1238,7 +1581,7 @@
 
   document.getElementById('transcript-restart-btn').addEventListener('click', () => showOnly('mode-section'));
   document.getElementById('transcript-continue-btn').addEventListener('click', () => {
-    alert('Assessment — coming soon.');
+    showSecondAnswerSection();
   });
 
   function showTranscriptResult() {
@@ -1309,6 +1652,82 @@
   };
 
   const SPEECH_FALLBACK = `Looking at these two photographs, what strikes me immediately is how differently they approach what seems to be a shared theme. The first image draws the eye to a particular atmosphere — there's something very specific about its mood and composition that invites reflection. The second photograph feels like a counterpoint: it takes a related subject but presents it from a quite different angle, in terms of setting, tone, or what it suggests about the people involved. What I find interesting is that neither image tells a complete story on its own — it's the comparison that creates meaning. Together, they highlight contrasts that go beyond the purely visual: differences in mood, perhaps, or in what kind of life each image implies. I'd say the second feels slightly more thought-provoking to me, though both raise questions I'd genuinely want to explore in more depth.`;
+
+  // ════════════════════════════════════════════════════════════════
+  // EXAMINER PROMPTS — task (to 1st candidate) + Q&A (to/from 2nd)
+  // ════════════════════════════════════════════════════════════════
+  const EXAMINER_PROMPTS = {
+    'technology': {
+      task: `Here are your two photographs. They both show people using technology in different contexts. I'd like you to compare and contrast these photographs, and say how technology is changing the way people live and work.`,
+      question2nd: `Which of these ways of using technology do you think has had a more positive impact on people's everyday lives?`,
+      answer2nd: `I think the more personal, individual use of technology has the greater positive impact, because it gives people genuine control over their own time and learning. Technology in a professional setting drives efficiency, but it can also create pressure and dependency. On balance, tools that people use on their own terms — to connect, create, or learn — tend to enrich life in ways that feel more meaningful and sustainable in the long run.`,
+    },
+    'education school': {
+      task: `Here are your two photographs. They both relate to education and learning, but in quite different settings. I'd like you to compare and contrast these photographs, and say what you think makes a learning environment truly effective.`,
+      question2nd: `Which of these learning environments do you think would suit most students better, and why?`,
+      answer2nd: `I'd say most students would benefit from a blend of both, but the more structured setting probably provides the better foundation. Clear expectations and a consistent routine help learners build confidence and discipline. That said, the more experiential approach is crucial for deeper engagement and retention. The most effective education combines both: structure provides the framework, while hands-on or collaborative activities make learning genuinely stick over time.`,
+    },
+    'environment nature': {
+      task: `Here are your two photographs. They both relate to the natural world, but they seem to tell quite different stories. I'd like you to compare and contrast these photographs, and say what you think people and societies can do to better protect the environment.`,
+      question2nd: `Do you think individuals or governments bear greater responsibility for protecting the environment?`,
+      answer2nd: `I believe governments have the greater responsibility, because systemic change — through regulation, investment, and international agreements — can achieve what individual action simply cannot at scale. Individual choices do matter: they shape demand and send important cultural signals. But the most effective approach combines both, with governments setting ambitious targets and creating the conditions that make sustainable choices easier and more affordable for ordinary people.`,
+    },
+    'health fitness': {
+      task: `Here are your two photographs. They both connect to health and wellbeing, but they approach it in quite different ways. I'd like you to compare and contrast these photographs, and say how important you think it is to maintain a healthy lifestyle in modern life.`,
+      question2nd: `Do you think modern life makes it easier or harder to stay healthy compared to previous generations?`,
+      answer2nd: `Modern life makes it significantly harder for most people, despite giving us better health information than ever before. Long working hours, sedentary jobs, processed food, and constant digital distraction all work against healthy habits. Awareness alone isn't enough when the environment pulls in the opposite direction. That said, for those with time and resources, modern tools genuinely support healthier choices, which highlights how much health is shaped by social and economic inequality.`,
+    },
+    'people working office': {
+      task: `Here are your two photographs. They both show people in professional settings, but in quite different environments. I'd like you to compare and contrast these photographs, and say how you think the nature of work is changing.`,
+      question2nd: `Do you think remote working is generally better or worse for productivity than working in an office?`,
+      answer2nd: `The honest answer is that it depends heavily on the individual and the role. Remote working clearly boosts productivity for tasks requiring deep, focused concentration, and it eliminates commuting time entirely. But collaborative, creative work often suffers without face-to-face interaction. What the shift to remote working has revealed is that the traditional office model assumed everyone worked the same way — and that assumption was never entirely correct.`,
+    },
+    'travel tourism': {
+      task: `Here are your two photographs. They both relate to travel and tourism, but they capture quite different kinds of experience. I'd like you to compare and contrast these photographs, and say how you think travel benefits people.`,
+      question2nd: `Do you think mass tourism does more harm than good to the places people visit?`,
+      answer2nd: `On balance, I think mass tourism often does more harm than good to the specific locations where it concentrates. It can damage fragile ecosystems, price out local residents, and gradually erode the very culture that attracted visitors in the first place. The economic benefits are real, but they're frequently unevenly distributed. Smaller-scale, sustainable tourism that genuinely supports local communities is a far better model, even if it's harder to organise on a large scale.`,
+    },
+    'food cooking': {
+      task: `Here are your two photographs. They both explore the theme of food, but in quite different ways. I'd like you to compare and contrast these photographs, and say how important you think food and food culture are in people's lives.`,
+      question2nd: `Do you think people today have a healthier or unhealthier relationship with food than previous generations?`,
+      answer2nd: `It's genuinely mixed. We have far greater awareness of nutrition and access to a much wider variety of foods. But ultra-processed food is everywhere, and diet culture has made many people anxious about eating in ways that aren't psychologically healthy. I think previous generations had a simpler, more intuitive relationship with food — cooking from scratch, eating together, wasting far less. We've gained nutritional knowledge but arguably lost a kind of everyday food wisdom.`,
+    },
+    'sport competition': {
+      task: `Here are your two photographs. They both relate to sport, but they seem to focus on different aspects of what sport means. I'd like you to compare and contrast these photographs, and say what role you think sport plays in society.`,
+      question2nd: `Do you think competitive sport builds character, or does it put too much pressure on young people?`,
+      answer2nd: `I think it does both, and the balance depends on how it's managed. At its best, competitive sport teaches resilience, teamwork, and how to handle winning and losing with grace — all genuinely valuable life skills. But when winning becomes the only measure of success, sport can cause real psychological harm, particularly for young people. The difference usually comes down to the adults involved — coaches and parents who can keep things in perspective.`,
+    },
+    'family together': {
+      task: `Here are your two photographs. They both relate to family life, though they seem to capture it in quite different ways. I'd like you to compare and contrast these photographs, and say how you think family life has changed in recent years.`,
+      question2nd: `Do you think it is harder to maintain strong family relationships today than it was in the past?`,
+      answer2nd: `In some ways yes, in others no. Physical distance, busy schedules, and the constant pull of digital devices do create real challenges for family time. But technology also allows families separated by geography to stay genuinely connected in ways that weren't possible before. I think the deeper issue is intention: strong family relationships have always required deliberate effort. The pressures may have changed, but the fundamental need to prioritise those relationships hasn't.`,
+    },
+    'city urban life': {
+      task: `Here are your two photographs. They both relate to city and urban life, but they seem to show quite different sides of it. I'd like you to compare and contrast these photographs, and say what you think makes a city a genuinely good place to live.`,
+      question2nd: `Do you think living in a city is better or worse for quality of life than living in the countryside?`,
+      answer2nd: `Neither is universally better — it really depends on what you value most. Cities offer variety, career opportunities, cultural richness, and social diversity that are hard to replicate elsewhere. The countryside offers space, quiet, strong community, and a closer connection to nature. What the evidence does consistently suggest is that access to green space is crucial wherever you live, and that cities which invest in parks and walkable streets genuinely improve residents' wellbeing and sense of belonging.`,
+    },
+    'social media smartphone': {
+      task: `Here are your two photographs. They both relate to social media and smartphones, but they approach the subject from different angles. I'd like you to compare and contrast these photographs, and say how you think social media has changed the way people communicate.`,
+      question2nd: `Do you think young people today are more or less socially connected than previous generations?`,
+      answer2nd: `More connected in quantity, but often less so in quality. Young people today maintain far larger networks and communicate constantly, but much of that interaction is shallow — likes, short videos, and curated highlights rather than genuine dialogue. Real connection requires vulnerability and presence, which are harder to cultivate online. That said, for young people in marginalised or isolated communities, social media can be a genuine lifeline for finding belonging and shared identity.`,
+    },
+    'art culture museum': {
+      task: `Here are your two photographs. They both connect to art and culture, but they represent it in quite different ways. I'd like you to compare and contrast these photographs, and say how important you think art and culture are in people's everyday lives.`,
+      question2nd: `Do you think art and culture should receive public funding, or should they be self-sustaining through the market?`,
+      answer2nd: `I strongly believe public funding is essential. Much of the art with the greatest long-term cultural value — experimental theatre, contemporary music, regional museums, independent film — simply could not survive on commercial terms alone. Public funding allows culture to take risks, serve communities rather than just consumers, and preserve heritage that would otherwise be lost entirely. The arts also generate significant economic and social value that is not reflected in box office figures or ticket sales.`,
+    },
+  };
+
+  const EXAMINER_PROMPT_FALLBACK = {
+    task: `Here are your two photographs. They seem to share a common theme, though they approach it from quite different angles. I'd like you to compare and contrast the two images, and say what you find most interesting about the differences between them.`,
+    question2nd: `Which of the two photographs do you find more thought-provoking, and why?`,
+    answer2nd: `I find the second photograph more thought-provoking, because it raises questions that the first one answers a little too neatly. The first has a clarity of mood and composition that's satisfying but somewhat closed. The second feels more ambiguous — it invites you to bring your own interpretation. And in my experience, the images that stay with you are usually the ones that don't quite resolve: those that leave something open for the viewer to complete themselves.`,
+  };
+
+  function getExaminerPrompt(topic) {
+    return (topic && EXAMINER_PROMPTS[topic.query]) ? EXAMINER_PROMPTS[topic.query] : EXAMINER_PROMPT_FALLBACK;
+  }
 
   function generateSpeech(topic) {
     return (topic && SPEECHES[topic.query]) ? SPEECHES[topic.query] : SPEECH_FALLBACK;
