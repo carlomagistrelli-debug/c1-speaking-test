@@ -1275,7 +1275,10 @@
     });
   }
 
-  // ── Convert image object to Claude API image source (always base64) ─
+  // ── Convert image object to Claude API image source ──────────────
+  // Tries base64 first; falls back to type:"url" if the browser cannot
+  // fetch the image cross-origin. Claude's servers can reach public
+  // Unsplash URLs directly even when the browser cannot.
   async function imageToApiSource(img) {
     const src = img.src;
     if (src.startsWith('data:')) {
@@ -1283,7 +1286,12 @@
       const mediaType = src.slice(5, comma).replace(';base64', '');
       return { type: 'base64', media_type: mediaType, data: src.slice(comma + 1) };
     }
-    return urlToBase64Source(src);
+    try {
+      return await urlToBase64Source(src);
+    } catch (e) {
+      console.warn('Image fetch failed, sending URL to Claude instead:', e.message);
+      return { type: 'url', url: src };
+    }
   }
 
   // ── Call Claude vision API to generate image-specific content ─────
