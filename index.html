@@ -698,6 +698,20 @@
       font-size: 1.1rem; color: #b45309; padding: 0; flex-shrink: 0;
     }
 
+    /* ── Dynamic content badge ───────────────────────────────────── */
+    .dynamic-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #c6f6d5;
+      color: #276749;
+      border-radius: 6px;
+      padding: 0.15rem 0.5rem;
+      letter-spacing: 0.03em;
+      text-transform: none;
+      vertical-align: middle;
+    }
+
     /* ── Loading overlay ─────────────────────────────────────────── */
     #loading-overlay {
       position: fixed; inset: 0;
@@ -863,7 +877,7 @@
   <!-- ⑤-A Examiner prompt (2nd Candidate scenario) -->
   <section id="examiner-prompt-2nd-section">
     <div class="section-header">
-      <p class="step-label">Examiner&rsquo;s task</p>
+      <p class="step-label" id="ep2-step-label">Examiner&rsquo;s task</p>
       <div class="header-actions">
         <button class="action-btn" id="ep2-back-btn">&#8592; Change role</button>
       </div>
@@ -913,7 +927,7 @@
   <!-- ⑦-A Examiner prompt (1st Candidate) -->
   <section id="examiner-prompt-section">
     <div class="section-header">
-      <p class="step-label">Examiner&rsquo;s task</p>
+      <p class="step-label" id="ep-step-label">Examiner&rsquo;s task</p>
       <div class="header-actions">
         <button class="action-btn" id="ep-back-btn">&#8592; Change images</button>
       </div>
@@ -1244,17 +1258,32 @@
     document.getElementById('loading-overlay').classList.add('hidden');
   }
 
-  // ── Convert image object to Claude API image source ───────────────
-  function imageToApiSource(img) {
+  // ── Fetch an image URL and return a base64 API source object ────────
+  async function urlToBase64Source(url) {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl    = reader.result;
+        const comma      = dataUrl.indexOf(',');
+        const mediaType  = dataUrl.slice(5, comma).replace(';base64', '');
+        resolve({ type: 'base64', media_type: mediaType, data: dataUrl.slice(comma + 1) });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ── Convert image object to Claude API image source (always base64) ─
+  async function imageToApiSource(img) {
     const src = img.src;
     if (src.startsWith('data:')) {
-      const comma = src.indexOf(',');
-      const header = src.slice(0, comma);        // e.g. "data:image/jpeg;base64"
-      const data   = src.slice(comma + 1);
-      const mediaType = header.replace('data:', '').replace(';base64', '');
-      return { type: 'base64', media_type: mediaType, data };
+      const comma     = src.indexOf(',');
+      const mediaType = src.slice(5, comma).replace(';base64', '');
+      return { type: 'base64', media_type: mediaType, data: src.slice(comma + 1) };
     }
-    return { type: 'url', url: src };
+    return urlToBase64Source(src);
   }
 
   // ── Call Claude vision API to generate image-specific content ─────
@@ -1263,6 +1292,8 @@
     if (!key) return null;
     try {
       const [img1, img2] = images;
+      const [src1, src2] = await Promise.all([imageToApiSource(img1), imageToApiSource(img2)]);
+
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -1277,8 +1308,8 @@
           messages: [{
             role: 'user',
             content: [
-              { type: 'image', source: imageToApiSource(img1) },
-              { type: 'image', source: imageToApiSource(img2) },
+              { type: 'image', source: src1 },
+              { type: 'image', source: src2 },
               { type: 'text', text:
 `You are helping with a Cambridge C1 Speaking Test Part 2 practice app.
 Two photographs are shown above. Generate four texts based specifically on what you can see in these two images.
@@ -1298,11 +1329,16 @@ Respond with valid JSON only, no markdown fences:
         console.warn('Claude API error', response.status, await response.text());
         return null;
       }
-      const data   = await response.json();
-      const text   = data.content?.[0]?.text?.trim();
+      const data = await response.json();
+      let text   = data.content?.[0]?.text?.trim();
       if (!text) return null;
+      // Strip markdown fences if Claude added them despite instructions
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const parsed = JSON.parse(text);
-      if (parsed.task && parsed.speech && parsed.question2nd && parsed.answer2nd) return parsed;
+      if (parsed.task && parsed.speech && parsed.question2nd && parsed.answer2nd) {
+        console.info('Dynamic content generated successfully.');
+        return parsed;
+      }
       return null;
     } catch (err) {
       console.warn('Dynamic content generation failed:', err);
@@ -1691,6 +1727,17 @@ Respond with valid JSON only, no markdown fences:
     startFirstCandidateActivity(firstChosenImages);
   });
 
+  function setDynamicBadge(labelId) {
+    const el = document.getElementById(labelId);
+    if (!el) return;
+    if (currentGeneratedContent) {
+      el.innerHTML = el.innerHTML.replace(/ <span class="dynamic-badge">.*?<\/span>/, '') +
+        ' <span class="dynamic-badge">&#10024; Image-specific</span>';
+    } else {
+      el.innerHTML = el.innerHTML.replace(/ <span class="dynamic-badge">.*?<\/span>/, '');
+    }
+  }
+
   function showExaminerPromptSection(chosen) {
     firstChosenImages = chosen;
     const data = getExaminerPrompt(currentTopic);
@@ -1715,6 +1762,7 @@ Respond with valid JSON only, no markdown fences:
     document.getElementById('ep-skip-btn').style.display = '';
     document.querySelector('#examiner-prompt-section .speaking-header').style.display = '';
 
+    setDynamicBadge('ep-step-label');
     showOnly('examiner-prompt-section');
     startEpSpeech(data.task);
   }
@@ -2799,6 +2847,7 @@ Respond with valid JSON only, no markdown fences:
     document.getElementById('ep2-skip-btn').style.display = '';
     document.querySelector('#examiner-prompt-2nd-section .speaking-header').style.display = '';
 
+    setDynamicBadge('ep2-step-label');
     showOnly('examiner-prompt-2nd-section');
     startEp2Speech(data.task);
   }
