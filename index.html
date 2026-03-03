@@ -697,6 +697,32 @@
       background: none; border: none; cursor: pointer;
       font-size: 1.1rem; color: #b45309; padding: 0; flex-shrink: 0;
     }
+
+    /* ── Loading overlay ─────────────────────────────────────────── */
+    #loading-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    #loading-overlay.hidden { display: none; }
+    .loading-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem 2.5rem;
+      display: flex; flex-direction: column; align-items: center; gap: 1rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      max-width: 320px; text-align: center;
+    }
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #3182ce;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg { font-size: 0.93rem; color: #4a5568; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -715,6 +741,13 @@
   <p>Guided speaking activity preparation</p>
 </header>
 
+<div id="loading-overlay" class="hidden">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <p class="loading-msg">Analysing your images with Claude…<br><span style="font-size:0.8rem;color:#a0aec0">This takes a few seconds</span></p>
+  </div>
+</div>
+
 <div id="main">
 
   <!-- ① Mode selection -->
@@ -731,6 +764,38 @@
         <h2>My own images</h2>
         <p>Upload 3 photos from your device</p>
       </div>
+    </div>
+    <p style="text-align:center;margin-top:1.4rem">
+      <button class="action-btn" id="open-settings-btn" style="font-size:0.82rem">&#9881; API key settings</button>
+    </p>
+  </section>
+
+  <!-- ① API key settings -->
+  <section id="api-settings-section">
+    <div class="section-header">
+      <p class="step-label">API Key Settings</p>
+      <div class="header-actions">
+        <button class="action-btn" id="settings-back-btn">&#8592; Back</button>
+      </div>
+    </div>
+    <div class="assess-block">
+      <p class="assess-block-title">Anthropic API key</p>
+      <p style="font-size:0.87rem;color:#4a5568;margin-bottom:1.1rem;line-height:1.6">
+        When a key is saved, the app uses Claude to analyse the actual photographs
+        and generate an examiner prompt, model speech, question and answer that
+        describe what is <em>genuinely visible</em> in your images.<br><br>
+        Your key is stored only in your browser's <code>localStorage</code> — it
+        is never sent to GitHub or any server other than Anthropic's API directly.
+        Without a key the app falls back to topic-based model texts.
+      </p>
+      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+        <input type="password" id="api-key-input"
+               placeholder="sk-ant-…"
+               style="flex:1;min-width:200px;padding:0.55rem 0.85rem;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-family:monospace;outline:none">
+        <button class="btn" id="api-key-save-btn" style="white-space:nowrap">Save key</button>
+        <button class="action-btn" id="api-key-clear-btn">Clear</button>
+      </div>
+      <p id="api-key-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
     </div>
   </section>
 
@@ -1161,6 +1226,142 @@
   const TOTAL  = 3;
   const CHOOSE = 2;
 
+  // ── Dynamic content state ─────────────────────────────────────────
+  let currentGeneratedContent = null;   // { task, speech, question2nd, answer2nd } or null
+  let contentPromise          = null;   // in-flight Promise or null
+  let contentSettled          = false;  // true once contentPromise has resolved
+
+  // ── API key (stored in localStorage) ─────────────────────────────
+  function getAnthropicKey() {
+    return localStorage.getItem('c1_anthropic_key') || null;
+  }
+
+  // ── Loading overlay ───────────────────────────────────────────────
+  function showLoadingOverlay() {
+    document.getElementById('loading-overlay').classList.remove('hidden');
+  }
+  function hideLoadingOverlay() {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }
+
+  // ── Convert image object to Claude API image source ───────────────
+  function imageToApiSource(img) {
+    const src = img.src;
+    if (src.startsWith('data:')) {
+      const comma = src.indexOf(',');
+      const header = src.slice(0, comma);        // e.g. "data:image/jpeg;base64"
+      const data   = src.slice(comma + 1);
+      const mediaType = header.replace('data:', '').replace(';base64', '');
+      return { type: 'base64', media_type: mediaType, data };
+    }
+    return { type: 'url', url: src };
+  }
+
+  // ── Call Claude vision API to generate image-specific content ─────
+  async function generateDynamicContent(images) {
+    const key = getAnthropicKey();
+    if (!key) return null;
+    try {
+      const [img1, img2] = images;
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':                              key,
+          'anthropic-version':                      '2023-06-01',
+          'content-type':                           'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-6',
+          max_tokens: 1400,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: imageToApiSource(img1) },
+              { type: 'image', source: imageToApiSource(img2) },
+              { type: 'text', text:
+`You are helping with a Cambridge C1 Speaking Test Part 2 practice app.
+Two photographs are shown above. Generate four texts based specifically on what you can see in these two images.
+
+1. task (~180 chars): Examiner's instruction to the 1st candidate — ask them to compare and contrast the two photos and address a relevant thematic question about them.
+2. speech (~900 chars): A model C1 compare-contrast response (~65–70 seconds when spoken). Genuinely describe what is visible in each photograph; use hedging ("appears to", "seems to"), discourse markers ("by contrast", "what strikes me", "what I find interesting is"), and C1 vocabulary and grammar. Do NOT invent details not visible in the photos.
+3. question2nd (~110 chars): A brief follow-up question from the examiner to the 2nd candidate about the theme suggested by the images.
+4. answer2nd (~300 chars): A concise model C1 answer from the 2nd candidate — balanced, with a clear personal perspective.
+
+Respond with valid JSON only, no markdown fences:
+{"task":"...","speech":"...","question2nd":"...","answer2nd":"..."}` },
+            ],
+          }],
+        }),
+      });
+      if (!response.ok) {
+        console.warn('Claude API error', response.status, await response.text());
+        return null;
+      }
+      const data   = await response.json();
+      const text   = data.content?.[0]?.text?.trim();
+      if (!text) return null;
+      const parsed = JSON.parse(text);
+      if (parsed.task && parsed.speech && parsed.question2nd && parsed.answer2nd) return parsed;
+      return null;
+    } catch (err) {
+      console.warn('Dynamic content generation failed:', err);
+      return null;
+    }
+  }
+
+  // ── Start a background generation (call at the moment images are chosen) ──
+  function startContentGeneration(images) {
+    currentGeneratedContent = null;
+    contentSettled          = false;
+    if (!getAnthropicKey()) { contentPromise = null; contentSettled = true; return; }
+    contentPromise = generateDynamicContent(images).then(result => {
+      currentGeneratedContent = result;
+      contentSettled = true;
+    });
+  }
+
+  // ── Await pending generation, showing overlay only if not yet done ─
+  async function awaitContentGeneration() {
+    if (!contentPromise || contentSettled) return;
+    showLoadingOverlay();
+    await contentPromise;
+    hideLoadingOverlay();
+    contentPromise = null;
+  }
+
+  // ── Settings section ──────────────────────────────────────────────
+  function updateKeyStatus() {
+    const el  = document.getElementById('api-key-status');
+    const key = getAnthropicKey();
+    if (key) {
+      el.textContent  = '✓ Key saved (ends …' + key.slice(-4) + '). Image-specific generation is enabled.';
+      el.style.color  = '#276749';
+    } else {
+      el.textContent  = 'No key saved. The app will use built-in topic-based model texts.';
+      el.style.color  = '#718096';
+    }
+  }
+
+  document.getElementById('open-settings-btn').addEventListener('click', () => {
+    document.getElementById('api-key-input').value = '';
+    updateKeyStatus();
+    showOnly('api-settings-section');
+  });
+  document.getElementById('settings-back-btn').addEventListener('click', () => showOnly('mode-section'));
+  document.getElementById('api-key-save-btn').addEventListener('click', () => {
+    const val = document.getElementById('api-key-input').value.trim();
+    if (!val) return;
+    localStorage.setItem('c1_anthropic_key', val);
+    document.getElementById('api-key-input').value = '';
+    updateKeyStatus();
+  });
+  document.getElementById('api-key-clear-btn').addEventListener('click', () => {
+    localStorage.removeItem('c1_anthropic_key');
+    document.getElementById('api-key-input').value = '';
+    updateKeyStatus();
+  });
+
   const TOPICS = [
     { label: 'Technology',    emoji: '💻', query: 'technology' },
     { label: 'Education',     emoji: '📚', query: 'education school' },
@@ -1381,7 +1582,8 @@
 
   document.getElementById('display-back-btn').addEventListener('click', () => showOnly('role-section'));
 
-  document.getElementById('display-continue').addEventListener('click', () => {
+  document.getElementById('display-continue').addEventListener('click', async () => {
+    await awaitContentGeneration();
     showExaminerPrompt2nd(displayChosen);
   });
 
@@ -1400,6 +1602,8 @@
     });
 
     showOnly('display-section');
+    // Fire API call in background while user views images — may be done by the time they click Continue
+    startContentGeneration(chosen);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1451,8 +1655,10 @@
     if (ready) pickContinue.classList.remove('hidden');
   }
 
-  pickContinue.addEventListener('click', () => {
+  pickContinue.addEventListener('click', async () => {
     const chosen = [...pickSelected].map(i => allImages[i]);
+    startContentGeneration(chosen);
+    await awaitContentGeneration();
     showExaminerPromptSection(chosen);
   });
 
@@ -1967,6 +2173,11 @@
   };
 
   function getExaminerPrompt(topic) {
+    if (currentGeneratedContent) return {
+      task:        currentGeneratedContent.task,
+      question2nd: currentGeneratedContent.question2nd,
+      answer2nd:   currentGeneratedContent.answer2nd,
+    };
     return (topic && EXAMINER_PROMPTS[topic.query]) ? EXAMINER_PROMPTS[topic.query] : EXAMINER_PROMPT_FALLBACK;
   }
 
@@ -2039,6 +2250,7 @@
   ];
 
   function generateSpeech(topic) {
+    if (currentGeneratedContent) return currentGeneratedContent.speech;
     return (topic && SPEECHES[topic.query]) ? SPEECHES[topic.query] : SPEECH_FALLBACK;
   }
 
