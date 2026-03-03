@@ -639,6 +639,41 @@
     .assess-summary-band { font-size: 2rem; font-weight: 700; color: #2b4a7e; }
     .assess-summary-sub  { font-size: 0.92rem; color: #4a5568; margin-top: 0.3rem; }
 
+    /* ── Language highlights ─────────────────────────────────────── */
+    .lang-notes-subtitle {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #718096;
+      margin: 1.1rem 0 0.65rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .lang-notes-subtitle:first-child { margin-top: 0; }
+
+    .lang-highlight {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.65rem;
+      padding: 0.6rem 0.85rem;
+      background: #f7fafc;
+      border-left: 3px solid #3182ce;
+      border-radius: 0 8px 8px 0;
+    }
+    .lang-expression {
+      font-size: 0.9rem;
+      font-style: italic;
+      color: #2c5282;
+      line-height: 1.45;
+    }
+    .lang-note {
+      font-size: 0.83rem;
+      color: #4a5568;
+      line-height: 1.5;
+    }
+
     /* ── Compatibility banner ───────────────────────────────────── */
     #compat-banner {
       width: 100%;
@@ -1107,6 +1142,11 @@
     <div class="assess-summary" id="assess-summary" style="display:none">
       <div class="assess-summary-band" id="assess-band-display"></div>
       <p class="assess-summary-sub" id="assess-cefr-label"></p>
+    </div>
+
+    <div class="assess-block">
+      <p class="assess-block-title">Language highlights <span class="assess-hint">(C1 expressions &amp; structures from this topic)</span></p>
+      <div id="assess-lang-highlights"></div>
     </div>
 
     <div class="result-actions">
@@ -2002,6 +2042,205 @@
     return (topic && SPEECHES[topic.query]) ? SPEECHES[topic.query] : SPEECH_FALLBACK;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // LANGUAGE HIGHLIGHTS — 5 C1 features per topic
+  // Two sets: SPEECH_NOTES (compare-contrast model speech)
+  //           ANSWER_NOTES (model 2nd-candidate answer)
+  // ════════════════════════════════════════════════════════════════
+  const SPEECH_NOTES = {
+    'technology': [
+      { expression: `"The first image appears to show technology in a personal, everyday setting"`, note: `Hedging with appear to + infinitive — essential for speculating about a photo without making unsupported claims.` },
+      { expression: `"The second photograph, by contrast, places technology in a more professional context"`, note: `by contrast as a discourse marker to signal comparison — a key linking device for Part 2.` },
+      { expression: `"What strikes me most is how differently we relate to technology"`, note: `Fronted nominal what-clause as subject — a high-frequency C1 structure for focusing on a key point.` },
+      { expression: `"it feels more purposeful — even indispensable"`, note: `even as an intensifier after a dash — natural spoken reformulation that adds rhetorical weight.` },
+      { expression: `"whether technology serves us or whether, increasingly, we serve it"`, note: `Parallel whether…or whether structure with a mid-sentence fronted adverb (increasingly) — demonstrates syntactic control.` },
+    ],
+    'education school': [
+      { expression: `"The first seems to depict a formal, structured educational setting"`, note: `seem to + infinitive for tentative description — avoids asserting what you cannot know for certain about an image.` },
+      { expression: `"What I find interesting is the contrast in atmosphere"`, note: `Nominal what-clause for discourse focus — a varied alternative to "What strikes me…" that signals analytical engagement.` },
+      { expression: `"which undoubtedly has value in terms of consistency and academic rigour"`, note: `Non-defining relative clause + in terms of prepositional phrase — adds nuance without starting a new sentence.` },
+      { expression: `"student-centred"`, note: `Compound adjective with hyphen — technical/educational register vocabulary that signals familiarity with the topic.` },
+      { expression: `"recognising that different learners thrive in different environments"`, note: `Participial -ing clause as a reduced clause of result — adds information compactly without a new main verb.` },
+    ],
+    'environment nature': [
+      { expression: `"The first photograph appears to show the natural world at its most striking"`, note: `at its most + adjective — a superlative structure for vivid, concise description.` },
+      { expression: `"brings in the human dimension"`, note: `bring in as an idiomatic phrasal verb — more precise and natural than "shows" or "includes".` },
+      { expression: `"Neither image is neutral — both invite a kind of reflection"`, note: `Neither…both paired structure — elegant and economical; avoids repeating "image".` },
+      { expression: `"the beauty we stand to lose"`, note: `stand to + infinitive (= be likely to) — a C1 semi-modal for probable outcomes, more formal than "might lose".` },
+      { expression: `"the choices that will determine whether we lose it"`, note: `Embedded whether-clause inside a defining relative clause — layered subordination that shows syntactic range.` },
+    ],
+    'health fitness': [
+      { expression: `"the more visible, measurable side of health"`, note: `Pre-modification with two adjectives — creates a compact, precise noun phrase without a relative clause.` },
+      { expression: `"challenge the narrow view of health as simply fitness"`, note: `view of X as Y — a C1 pattern for redefining or questioning an established concept.` },
+      { expression: `"balance — between effort and recovery, between body and mind"`, note: `Parallel prepositional phrases after a dash — a deliberate rhetorical balance that reinforces the meaning of "balance".` },
+      { expression: `"sometimes at the expense of"`, note: `at the expense of — fixed expression meaning "by sacrificing" or "to the detriment of".` },
+      { expression: `"the most sustainable approach to health draws on elements of both"`, note: `draw on as a phrasal verb (= to use as a resource) + elements of both (ellipsis avoiding repetition) — economical and precise.` },
+    ],
+    'people working office': [
+      { expression: `"This contrast feels particularly significant given how dramatically work culture has shifted"`, note: `given how + adverb + clause — a complex subordinating structure expressing cause, more formal than "because of how".` },
+      { expression: `"blur the lines between work and personal life"`, note: `blur the lines between — a C1 idiom for making a distinction less clear.` },
+      { expression: `"The traditional model offers clear boundaries, face-to-face collaboration, and a defined structure"`, note: `Tricolon (list of three) — a rhetorical device that creates rhythm and completeness.` },
+      { expression: `"I believe neither model is universally better"`, note: `neither + universally — double hedge that avoids absolute statements, typical of balanced C1 argument.` },
+      { expression: `"what environment brings out the best in each person"`, note: `bring out the best in — idiomatic expression; embedded indirect question as object of "believe".` },
+    ],
+    'travel tourism': [
+      { expression: `"the kind of image that ends up on a postcard"`, note: `the kind of… that — relative clause with an indefinite head noun; "end up" is an idiomatic phrasal verb.` },
+      { expression: `"This distinction gets at something important about what we expect travel to do for us"`, note: `get at (= identify/reach the essence of) — precise idiomatic phrasal verb; embedded indirect question as object.` },
+      { expression: `"ticking things off, capturing memories"`, note: `Participial phrases in a compressed list — removes subjects and finite verbs for a concise, spoken-natural effect.` },
+      { expression: `"even if the first is what draws us there initially"`, note: `even if for strong concession — acknowledges a counterpoint while maintaining the main claim.` },
+      { expression: `"the most meaningful trips tend to lean towards the second"`, note: `lean towards — hedged directional verb phrase; tend to softens the generalisation.` },
+    ],
+    'food cooking': [
+      { expression: `"food is rarely ever just about nutrition"`, note: `rarely ever (double frequency adverb) — emphatic but not absolute; avoids "never" which would be an overstatement.` },
+      { expression: `"deeply bound up with identity, care, and connection"`, note: `bound up with — idiom meaning inseparably linked; deeply intensifies it; followed by a C1 tricolon.` },
+      { expression: `"a choice to invest time in the act of eating well"`, note: `Nominalisation: the act of eating — more formal and precise than simply "eating"; invest time in signals deliberate intent.` },
+      { expression: `"food as a way of experiencing other cultures"`, note: `X as a way of + -ing — a C1 structure for expressing purpose or function.` },
+      { expression: `"our relationship with food says a great deal about how we live"`, note: `say a great deal about — idiomatic expression for revealing or reflecting something significant.` },
+    ],
+    'sport competition': [
+      { expression: `"they highlight very different aspects of what sport means and who it is for"`, note: `Two coordinated embedded indirect questions (what… and who…) — syntactic density that signals range.` },
+      { expression: `"a high-pressure moment where performance and winning are at stake"`, note: `at stake — fixed expression meaning "at risk" or "in question"; at is essential (not "on stake").` },
+      { expression: `"I'd argue, makes room for both"`, note: `I'd argue (= I would argue) — contracted conditional for a hedged, confident assertion; make room for is idiomatic.` },
+      { expression: `"it uses the excitement of competition to inspire participation"`, note: `Nominalizations (excitement, participation) + infinitive of purpose — formal register with clear logical structure.` },
+      { expression: `"keeping the barriers to entry as low as possible"`, note: `barriers to entry — semi-technical expression from business/sociology; as… as possible for optimising.` },
+    ],
+    'family together': [
+      { expression: `"an image centred on togetherness and tradition"`, note: `Past participle as post-modifier (centred on) — compact alternative to a relative clause: "an image that is centred on…".` },
+      { expression: `"unscripted, perhaps a little chaotic, but warm and authentic"`, note: `Asyndeton list of adjectives with contrastive but — a stylistic choice that mirrors the spontaneous quality it describes.` },
+      { expression: `"the rituals and roles that give families their shape"`, note: `give X its shape — metaphorical expression for what defines or structures something.` },
+      { expression: `"create continuity across generations"`, note: `continuity across generations — abstract C1 collocation; across generations is more precise than "for generations".` },
+      { expression: `"the truest moments of connection often happen in the unplanned, ordinary spaces in between"`, note: `in the spaces in between — spatial metaphor for gaps and transitions; unplanned, ordinary is a deliberate pre-modifier contrast.` },
+    ],
+    'city urban life': [
+      { expression: `"the sense that something is always happening"`, note: `the sense that + clause — abstract nominalisation as head noun; captures an atmosphere without listing specifics.` },
+      { expression: `"a public space that feels lived-in and local"`, note: `lived-in — compound adjective evoking comfortable, inhabited familiarity; pairs naturally with local for contrast with "grand" or "official".` },
+      { expression: `"at the heart of what makes cities both exciting and challenging"`, note: `at the heart of — spatial idiom meaning "central to"; what makes… is a nominal relative clause as object.` },
+      { expression: `"what draws people to cities in the first place"`, note: `in the first place — idiom meaning "originally" or "to begin with"; signals a return to the fundamental reason.` },
+      { expression: `"the quality of the everyday spaces where people actually spend their lives"`, note: `actually as an emphasiser — grounds an abstract claim in lived reality; everyday as a pre-modifier signals mundane but important.` },
+    ],
+    'social media smartphone': [
+      { expression: `"somewhat withdrawn from the world around them"`, note: `somewhat as a hedging adverb — softens an adjective to avoid overstatement; more precise than "a bit" in written/formal style.` },
+      { expression: `"genuinely powerful tools for connection, creativity, and access to information"`, note: `genuinely as an intensifier — more precise than "really"; acknowledges value before introducing the counterargument.` },
+      { expression: `"reinforce isolation, distract us from meaningful engagement"`, note: `Parallel verb phrases without a conjunction (asyndeton) — creates a sense of accumulation and urgency.` },
+      { expression: `"how consciously we're choosing to use these tools"`, note: `Adverb (consciously) fronted inside an embedded indirect question — focuses attention on the key variable: degree of awareness.` },
+      { expression: `"who, ultimately, is in control"`, note: `ultimately as a mid-sentence adverb inside an indirect question — adds a philosophical, rhetorical weight to the closing point.` },
+    ],
+    'art culture museum': [
+      { expression: `"art is preserved, curated, and presented to the public"`, note: `Passive tricolon — focuses on the function of institutions rather than the agents; curated is precise domain vocabulary.` },
+      { expression: `"art also needs to break free of those boundaries"`, note: `break free of — idiomatic phrasal verb for escaping constraints; also signals a concessive turn after acknowledging the value of institutions.` },
+      { expression: `"to meet people where they are"`, note: `Idiomatic expression meaning to engage people at their own level, in their own context — widely used in education and culture.` },
+      { expression: `"reflect the world as it is now"`, note: `as it is now — present-state relative clause; concise and grounded, contrasting with heritage/tradition.` },
+      { expression: `"the weight of tradition and the vitality of the present moment"`, note: `weight and vitality — contrasting metaphorical nouns; the present moment is a deliberate formality giving the phrase a slightly philosophical register.` },
+    ],
+    'fallback': [
+      { expression: `"draws the eye to a particular atmosphere"`, note: `draw the eye to — idiom meaning to attract visual attention; more vivid than "shows" or "focuses on".` },
+      { expression: `"feels like a counterpoint"`, note: `counterpoint — a musical metaphor used in extended meaning; signals a sophisticated, cross-domain vocabulary.` },
+      { expression: `"it's the comparison that creates meaning"`, note: `It-cleft structure (It is… that…) — a C1 focusing device that emphasises the predicate rather than the subject.` },
+      { expression: `"the images that stay with you"`, note: `stay with you — idiomatic phrasal verb meaning to remain in your memory; informal but effective for personal engagement.` },
+      { expression: `"the ones that don't quite resolve"`, note: `don't quite — hedged negation; resolve used intransitively (of tension or ambiguity coming to a conclusion) — precise and unusual word choice.` },
+    ],
+  };
+
+  const ANSWER_NOTES = {
+    'technology': [
+      { expression: `"the more personal, individual use of technology has the greater positive impact"`, note: `Comparative (greater) rather than superlative — more nuanced, since you are comparing two specific options, not all possibilities.` },
+      { expression: `"genuine control over their own time and learning"`, note: `genuine as a pre-modifier — more precise and measured than "real" or "full"; signals a C1 vocabulary range.` },
+      { expression: `"drives efficiency, but it can also create pressure and dependency"`, note: `Contrastive but…also — acknowledges trade-offs; drives and create are strong, precise verb choices.` },
+      { expression: `"on their own terms"`, note: `on their own terms — idiom meaning according to their own conditions or preferences; conversational but precise.` },
+      { expression: `"tend to enrich life in ways that feel more meaningful and sustainable in the long run"`, note: `tend to for hedged generalisation + in the long run (fixed expression for over time) — two C1 hedging devices in one sentence.` },
+    ],
+    'education school': [
+      { expression: `"I'd say"`, note: `I'd say (= I would say) — contracted conditional; more tentative and nuanced than "I think", signalling careful reasoning.` },
+      { expression: `"a blend of both"`, note: `blend — precise noun implying deliberate integration, not just a mix; avoids vague "combination" or "mix".` },
+      { expression: `"That said"`, note: `That said — discourse marker for introducing a concession or counterpoint; signals balanced, C1-level argumentation.` },
+      { expression: `"crucial for deeper engagement and retention"`, note: `Nominalisations engagement and retention — academic register vocabulary; crucial is stronger and more precise than "important".` },
+      { expression: `"make learning genuinely stick"`, note: `stick used metaphorically (= to be remembered long-term) — vivid informal metaphor; genuinely as a precise intensifier.` },
+    ],
+    'environment nature': [
+      { expression: `"systemic change — through regulation, investment, and international agreements —"`, note: `Dash-enclosed appositive list — inserts detail without interrupting the main clause; a natural and economical C1 structure.` },
+      { expression: `"can achieve what individual action simply cannot at scale"`, note: `at scale — semi-technical collocation meaning at a large societal level; simply emphases the limitation.` },
+      { expression: `"Individual choices do matter"`, note: `do as an emphatic auxiliary — stresses a concession before countering it; a key technique for balanced argument.` },
+      { expression: `"shape demand and send important cultural signals"`, note: `shape demand and send signals — precise collocations from economics and sociology; avoids vague verbs like "affect" or "change".` },
+      { expression: `"creating the conditions that make sustainable choices easier and more affordable"`, note: `create the conditions that… — a C1 enabling/facilitating pattern; used to describe structural rather than individual change.` },
+    ],
+    'health fitness': [
+      { expression: `"makes it significantly harder for most people"`, note: `Extraposition: make it + adjective + for + infinitive — a formal C1 sentence pattern; significantly is a precise degree adverb.` },
+      { expression: `"despite giving us better health information than ever before"`, note: `despite + gerund — concessive prepositional phrase; than ever before is a fixed expression for "more than at any previous time".` },
+      { expression: `"all work against healthy habits"`, note: `work against — phrasal verb meaning to hinder or undermine; all as a universal quantifier for the listed subjects.` },
+      { expression: `"Awareness alone isn't enough when the environment pulls in the opposite direction"`, note: `alone as a post-nominal emphatic (awareness alone) — more formal than "just awareness"; pull in the opposite direction is idiomatic.` },
+      { expression: `"how much health is shaped by social and economic inequality"`, note: `shaped by — passive construction that highlights the influencing factor; social and economic inequality — precise sociological collocation.` },
+    ],
+    'people working office': [
+      { expression: `"The honest answer is that it depends heavily on the individual and the role"`, note: `The honest answer is that… — signals directness and nuance simultaneously; depend heavily on is a precise collocational phrase.` },
+      { expression: `"tasks requiring deep, focused concentration"`, note: `Post-nominal participial phrase (requiring…) — compact modifier equivalent to "tasks that require…"; more formal register.` },
+      { expression: `"What the shift to remote working has revealed is that…"`, note: `Pseudo-cleft (What X has revealed is that…) — a C1 focusing device that places the main new information after "is that".` },
+      { expression: `"the traditional office model assumed everyone worked the same way"`, note: `assumed + embedded clause — reports an implicit belief; a subtle way to challenge a premise without saying "it was wrong".` },
+      { expression: `"that assumption was never entirely correct"`, note: `never entirely — double hedge (negation + degree adverb); avoids the absolute "was always wrong" while still making a critical point.` },
+    ],
+    'travel tourism': [
+      { expression: `"On balance"`, note: `On balance — discourse marker meaning "after weighing everything"; signals a considered, fair-minded conclusion.` },
+      { expression: `"price out local residents"`, note: `price out — phrasal verb meaning to make something too expensive for a group; precise and common in socio-economic discourse.` },
+      { expression: `"gradually erode the very culture that attracted visitors"`, note: `erode (= to wear away gradually) — vivid verb for slow destruction; the very + noun for added emphasis on the irony.` },
+      { expression: `"frequently unevenly distributed"`, note: `Two adverbs stacked (frequently + unevenly) — demonstrates adverb range; unevenly distributed is a precise economic collocation.` },
+      { expression: `"even if it's harder to organise on a large scale"`, note: `even if — strong concessive connector admitting difficulty while maintaining the claim; on a large scale is a fixed expression.` },
+    ],
+    'food cooking': [
+      { expression: `"It's genuinely mixed"`, note: `Opening with a short evaluative sentence + genuinely as intensifier — direct and confident; avoids the over-used "It's a complex issue".` },
+      { expression: `"far greater awareness"`, note: `far as a degree modifier with comparatives — stronger than "much greater"; signals a clear lexical range.` },
+      { expression: `"in ways that aren't psychologically healthy"`, note: `Relative clause modifying ways — avoids a direct, blunt statement; psychologically healthy is a precise collocation from wellbeing discourse.` },
+      { expression: `"cooking from scratch"`, note: `from scratch — idiom meaning from basic ingredients without shortcuts; widely understood and natural in this context.` },
+      { expression: `"arguably lost a kind of everyday food wisdom"`, note: `arguably — hedging adverb for a potentially controversial claim; a kind of softens the abstract noun wisdom.` },
+    ],
+    'sport competition': [
+      { expression: `"I think it does both"`, note: `Ellipsis (does both avoids repeating "builds character" and "puts pressure on young people") — economical and natural; signals grammatical control.` },
+      { expression: `"At its best, competitive sport teaches resilience, teamwork, and how to handle winning and losing with grace"`, note: `At its best — fronted prepositional phrase for presenting an ideal case; with grace — manner adverbial adding a cultural/social dimension.` },
+      { expression: `"when winning becomes the only measure of success"`, note: `Temporal when-clause functioning as a condition — more nuanced than "if"; measure of success is a precise collocation.` },
+      { expression: `"can cause real psychological harm"`, note: `real as a pre-modifier intensifier — more measured than "serious"; psychological harm is precise medical/social register.` },
+      { expression: `"come down to the adults involved"`, note: `come down to — phrasal verb meaning to ultimately depend on; involved as a post-nominal past participle modifier.` },
+    ],
+    'family together': [
+      { expression: `"In some ways yes, in others no"`, note: `Parallel elliptical structure — balanced and concise; avoids a lengthy preamble; signals confident, organised thinking.` },
+      { expression: `"the constant pull of digital devices"`, note: `pull used as a metaphorical noun (= attraction or force) — vivid and precise; constant as an intensifying pre-modifier.` },
+      { expression: `"families separated by geography"`, note: `Past participle as post-modifier (separated by) — compact equivalent of "families that are separated by geography".` },
+      { expression: `"The pressures may have changed, but the fundamental need… hasn't"`, note: `may have + past participle (epistemic modal perfect) + ellipsis in the second clause — demonstrates modal and grammatical control.` },
+      { expression: `"the fundamental need to prioritise those relationships"`, note: `prioritise — C1 verb precise in meaning; fundamental as an academic register adjective meaning essential/basic.` },
+    ],
+    'city urban life': [
+      { expression: `"Neither is universally better"`, note: `neither + universally — double-hedge; avoids an absolute comparative and signals a balanced, nuanced stance from the outset.` },
+      { expression: `"social diversity that are hard to replicate elsewhere"`, note: `replicate — formal synonym for "copy" or "reproduce"; elsewhere as a single-word adverb is more formal than "in other places".` },
+      { expression: `"What the evidence does consistently suggest is that…"`, note: `Emphatic pseudo-cleft with do auxiliary (does consistently suggest) — a strong but hedged claim backed by evidence.` },
+      { expression: `"crucial wherever you live"`, note: `wherever — free relative meaning "regardless of where"; more economical than "no matter where you live".` },
+      { expression: `"sense of belonging"`, note: `sense of belonging — fixed expression from sociology/psychology; a culturally rich phrase that signals awareness of wellbeing discourse.` },
+    ],
+    'social media smartphone': [
+      { expression: `"More connected in quantity, but often less so in quality"`, note: `Elliptical contrast (less so avoids repeating "connected") + parallel in quantity / in quality — economical and stylish.` },
+      { expression: `"curated highlights"`, note: `curated — borrowed from art/museum contexts (carefully selected and arranged); its use here signals a sophisticated, critical awareness.` },
+      { expression: `"Real connection requires vulnerability and presence"`, note: `vulnerability and presence — abstract nouns from psychology; requires is a stronger and more precise verb than "needs".` },
+      { expression: `"which are harder to cultivate online"`, note: `cultivate — precise verb implying sustained effort and growth; harder to cultivate is more nuanced than "difficult to find online".` },
+      { expression: `"a genuine lifeline for finding belonging and shared identity"`, note: `lifeline — idiom for something vital or saving; belonging and shared identity — sociological terms that elevate the register.` },
+    ],
+    'art culture museum': [
+      { expression: `"simply could not survive on commercial terms alone"`, note: `on commercial terms — fixed expression; alone as post-nominal emphatic; simply reinforces the impossibility.` },
+      { expression: `"Public funding allows culture to take risks"`, note: `allow X to + infinitive — a C1 causative pattern; take risks here is idiomatic and implies creative or financial risk.` },
+      { expression: `"serve communities rather than just consumers"`, note: `rather than — contrast conjunction; the communities vs consumers distinction is a deliberate, ideologically loaded lexical choice.` },
+      { expression: `"preserve heritage that would otherwise be lost entirely"`, note: `would otherwise be lost — conditional passive with otherwise for the counterfactual; entirely as a degree modifier.` },
+      { expression: `"that is not reflected in box office figures or ticket sales"`, note: `be reflected in — passive meaning "to show up in" or "to be visible in"; box office figures is domain-specific collocation.` },
+    ],
+    'fallback': [
+      { expression: `"raises questions that the first one answers a little too neatly"`, note: `a little too + adverb — degree expression for mild, precise criticism; avoids blunt "too simply" or "badly".` },
+      { expression: `"a clarity of mood and composition"`, note: `clarity of — formal noun phrase; composition is domain vocabulary from art/photography.` },
+      { expression: `"satisfying but somewhat closed"`, note: `somewhat as a hedging adverb before an adjective — avoids an absolute judgment; precise and nuanced.` },
+      { expression: `"invite you to bring your own interpretation"`, note: `invite X to + infinitive — causative with a warm, inclusive tone; bring your own interpretation is more precise than "decide for yourself".` },
+      { expression: `"the ones that don't quite resolve"`, note: `don't quite — hedged negation; resolve used intransitively (of tension or ambiguity reaching a conclusion) — precise and unusual.` },
+    ],
+  };
+
+  function getLangNotes(type, topic) {
+    const key = topic ? topic.query : null;
+    const map  = type === 'speech' ? SPEECH_NOTES : ANSWER_NOTES;
+    return (key && map[key]) ? map[key] : map['fallback'];
+  }
+
   // ── State ────────────────────────────────────────────────────────
   let secondChosen          = [];
   let appSpeechText         = '';
@@ -2587,6 +2826,29 @@
     });
 
     document.getElementById('assess-summary').style.display = 'none';
+
+    // ── Language highlights ────────────────────────────────────────
+    const hlEl = document.getElementById('assess-lang-highlights');
+    hlEl.innerHTML = '';
+
+    const renderNotes = (title, notes) => {
+      const subtitle = document.createElement('p');
+      subtitle.className = 'lang-notes-subtitle';
+      subtitle.textContent = title;
+      hlEl.appendChild(subtitle);
+      notes.forEach(({ expression, note }) => {
+        const div = document.createElement('div');
+        div.className = 'lang-highlight';
+        div.innerHTML =
+          `<div class="lang-expression">${expression}</div>` +
+          `<div class="lang-note">${note}</div>`;
+        hlEl.appendChild(div);
+      });
+    };
+
+    renderNotes('Compare-contrast speech', getLangNotes('speech', currentTopic));
+    renderNotes('Model 2nd-candidate answer', getLangNotes('answer', currentTopic));
+
     showOnly('assessment-section');
   }
 
@@ -2660,6 +2922,16 @@
       ``,
       `\u2500\u2500\u2500 YOUR TRANSCRIPT \u2500\u2500\u2500`,
       assessmentTranscript,
+      ``,
+      `\u2500\u2500\u2500 LANGUAGE HIGHLIGHTS \u2500\u2500\u2500`,
+      ``,
+      `Compare-contrast speech`,
+      ...getLangNotes('speech', currentTopic).map((n, i) =>
+        `${i + 1}. ${n.expression}\n   \u2192 ${n.note}`),
+      ``,
+      `Model 2nd-candidate answer`,
+      ...getLangNotes('answer', currentTopic).map((n, i) =>
+        `${i + 1}. ${n.expression}\n   \u2192 ${n.note}`),
     ].filter(l => l !== null).join('\n');
 
     const blob = new Blob([lines], { type: 'text/plain' });
