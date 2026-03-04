@@ -811,6 +811,7 @@
     </div>
     <p style="text-align:center;margin-top:1.4rem">
       <button class="action-btn" id="open-settings-btn" style="font-size:0.82rem">&#9881; API key settings</button>
+      <span id="mode-api-indicator" style="display:none;font-size:0.78rem;color:#276749;margin-left:0.6rem;vertical-align:middle">&#10003; API key active</span>
     </p>
   </section>
 
@@ -1413,15 +1414,19 @@ Respond with valid JSON only, no markdown fences:
   // ── Settings section ──────────────────────────────────────────────
   function updateKeyStatus() {
     const el  = document.getElementById('api-key-status');
+    const ind = document.getElementById('mode-api-indicator');
     const key = getAnthropicKey();
     if (key) {
       el.textContent  = '✓ Key saved (ends …' + key.slice(-4) + '). Image-specific generation is enabled.';
       el.style.color  = '#276749';
+      ind.style.display = 'inline';
     } else {
       el.textContent  = 'No key saved. The app will use built-in topic-based model texts.';
       el.style.color  = '#718096';
+      ind.style.display = 'none';
     }
   }
+  updateKeyStatus();
 
   document.getElementById('open-settings-btn').addEventListener('click', () => {
     document.getElementById('api-key-input').value = '';
@@ -2745,7 +2750,6 @@ Respond with valid JSON only, no markdown fences:
     secondTimerInterval = setInterval(() => {
       secondUserSeconds++;
       updateSecondUserTimer();
-      if (secondUserSeconds >= SECOND_SPEAK_LIMIT) stopUserSpeaking(true);
     }, 1000);
   }
 
@@ -2772,13 +2776,20 @@ Respond with valid JSON only, no markdown fences:
     secondTimerInterval = null;
 
     if (secondRecognition) {
-      secondRecognition.onend = null;
+      if (showResult) {
+        secondRecognition.onend = () => {
+          secondTranscriptInterim.textContent = '';
+          showSecondResult();
+        };
+      } else {
+        secondRecognition.onend = null;
+      }
       secondRecognition.stop();
       secondRecognition = null;
+    } else {
+      secondTranscriptInterim.textContent = '';
+      if (showResult) showSecondResult();
     }
-    secondTranscriptInterim.textContent = '';
-
-    if (showResult) showSecondResult();
   }
 
   // ── Result ───────────────────────────────────────────────────────
