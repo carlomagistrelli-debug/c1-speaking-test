@@ -3244,7 +3244,7 @@ Respond with valid JSON only, no markdown fences:
 
       if (!resp.ok) throw new Error(`API error ${resp.status}`);
       const data = await resp.json();
-      const raw  = data.content?.[0]?.text || '';
+      const raw  = (data.content?.[0]?.text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       let parsed;
       try { parsed = JSON.parse(raw); }
       catch { throw new Error('Could not parse response'); }
