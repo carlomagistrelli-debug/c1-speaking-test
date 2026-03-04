@@ -674,6 +674,36 @@
       line-height: 1.5;
     }
 
+    /* ── Text correction block ──────────────────────────────────── */
+    .correction-group { margin-bottom: 1rem; }
+    .correction-group:last-child { margin-bottom: 0; }
+    .correction-group-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #718096;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .correction-item {
+      padding: 0.55rem 0.8rem;
+      background: #fff5f5;
+      border-left: 3px solid #e53e3e;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 0.45rem;
+      font-size: 0.9rem;
+    }
+    .correction-pair { margin-bottom: 0.25rem; }
+    .correction-original  { color: #c53030; text-decoration: line-through; }
+    .correction-arrow     { color: #a0aec0; margin: 0 0.35rem; }
+    .correction-corrected { color: #276749; font-weight: 600; }
+    .correction-explanation { font-size: 0.81rem; color: #4a5568; margin-top: 0.2rem; }
+    .correction-none { color: #38a169; font-size: 0.9rem; font-style: italic; }
+    #assess-correct-btn { margin-bottom: 0.8rem; }
+    #assess-correct-btn:disabled { opacity: 0.6; cursor: default; }
+
     /* ── Compatibility banner ───────────────────────────────────── */
     #compat-banner {
       width: 100%;
@@ -1206,6 +1236,12 @@
     <div style="margin-bottom:1.4rem">
       <p class="transcript-label">Your transcript</p>
       <div class="transcript-box result-transcript-box" id="assess-transcript-display"></div>
+    </div>
+
+    <div class="assess-block" id="assess-correction-block">
+      <p class="assess-block-title">Text correction <span class="assess-hint">(requires Anthropic API key)</span></p>
+      <button class="btn" id="assess-correct-btn">Correct my text</button>
+      <div id="assess-correction-result"></div>
     </div>
 
     <div class="assess-block">
@@ -3118,8 +3154,133 @@ Respond with valid JSON only, no markdown fences:
     renderNotes('Compare-contrast speech', getLangNotes('speech', currentTopic));
     renderNotes('Model 2nd-candidate answer', getLangNotes('answer', currentTopic));
 
+    // ── Reset correction block for new session ─────────────────────
+    document.getElementById('assess-correction-result').innerHTML = '';
+    const correctBtn = document.getElementById('assess-correct-btn');
+    correctBtn.disabled = false;
+    correctBtn.textContent = 'Correct my text';
+
     showOnly('assessment-section');
   }
+
+  // ── Text correction via Claude API ────────────────────────────────
+  document.getElementById('assess-correct-btn').addEventListener('click', async () => {
+    const key = getAnthropicKey();
+    if (!key) {
+      document.getElementById('assess-correction-result').innerHTML =
+        '<p style="color:#c53030;font-size:0.9rem">No Anthropic API key set — add it in the Settings panel.</p>';
+      return;
+    }
+
+    const text = assessmentTranscript;
+    if (!text || text === '(No speech detected)') {
+      document.getElementById('assess-correction-result').innerHTML =
+        '<p class="correction-none">No transcript to correct.</p>';
+      return;
+    }
+
+    const btn = document.getElementById('assess-correct-btn');
+    btn.disabled = true;
+    btn.textContent = 'Correcting…';
+    document.getElementById('assess-correction-result').innerHTML =
+      '<p style="color:#718096;font-size:0.9rem">Analysing your text…</p>';
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':                              key,
+          'anthropic-version':                      '2023-06-01',
+          'content-type':                           'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1200,
+          messages: [{
+            role: 'user',
+            content:
+`You are a language coach correcting a learner's spoken English from a Cambridge C1 Speaking Test.
+
+Learner's transcript:
+---
+${text}
+---
+
+Rules:
+- Do NOT rewrite the whole paragraph.
+- List corrections clearly.
+- Explain briefly in simple English.
+- Group similar mistakes together (e.g. "Grammar", "Vocabulary", "Pronunciation / Spelling", "Discourse markers").
+- If there are no mistakes in a category, skip that category.
+- If the text is already very good, say so.
+
+Respond with valid JSON only, no markdown fences:
+{
+  "groups": [
+    {
+      "category": "Category name",
+      "corrections": [
+        { "original": "wrong phrase", "corrected": "right phrase", "explanation": "short reason" }
+      ]
+    }
+  ],
+  "overall": "One sentence of overall feedback."
+}`
+          }],
+        }),
+      });
+
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const data = await resp.json();
+      const raw  = data.content?.[0]?.text || '';
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch { throw new Error('Could not parse response'); }
+
+      const resultEl = document.getElementById('assess-correction-result');
+      resultEl.innerHTML = '';
+
+      if (!parsed.groups || parsed.groups.length === 0) {
+        resultEl.innerHTML = '<p class="correction-none">No mistakes found — great job!</p>';
+      } else {
+        parsed.groups.forEach(group => {
+          const groupDiv = document.createElement('div');
+          groupDiv.className = 'correction-group';
+          groupDiv.innerHTML = `<p class="correction-group-title">${group.category}</p>`;
+          (group.corrections || []).forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'correction-item';
+            item.innerHTML =
+              `<div class="correction-pair">` +
+                `<span class="correction-original">${c.original}</span>` +
+                `<span class="correction-arrow">→</span>` +
+                `<span class="correction-corrected">${c.corrected}</span>` +
+              `</div>` +
+              `<div class="correction-explanation">${c.explanation}</div>`;
+            groupDiv.appendChild(item);
+          });
+          resultEl.appendChild(groupDiv);
+        });
+      }
+
+      if (parsed.overall) {
+        const overall = document.createElement('p');
+        overall.style.cssText = 'font-size:0.88rem;color:#4a5568;margin-top:0.8rem;font-style:italic';
+        overall.textContent = parsed.overall;
+        resultEl.appendChild(overall);
+      }
+
+      btn.textContent = 'Correct my text';
+      btn.disabled = false;
+
+    } catch (err) {
+      document.getElementById('assess-correction-result').innerHTML =
+        `<p style="color:#c53030;font-size:0.9rem">Error: ${err.message}</p>`;
+      btn.textContent = 'Correct my text';
+      btn.disabled = false;
+    }
+  });
 
   function updateAssessmentSummary() {
     const selected = document.querySelectorAll('.scale-band-btn.selected');
