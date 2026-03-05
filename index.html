@@ -842,6 +842,26 @@
       </div>
       <p id="api-key-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
     </div>
+
+    <div class="assess-block" style="margin-top:1.2rem">
+      <p class="assess-block-title">OpenAI API key <span class="assess-hint">(for TTS voices)</span></p>
+      <p style="font-size:0.87rem;color:#4a5568;margin-bottom:1.1rem;line-height:1.6">
+        When set, the app uses OpenAI Text-to-Speech with two distinct voices:
+        <strong>onyx</strong> (deep male) for the examiner and <strong>nova</strong> (female) for
+        the candidate speech.<br><br>
+        Your key is stored only in your browser's <code>localStorage</code> — it is never
+        sent to GitHub or any server other than OpenAI's API directly.
+        Without a key the app falls back to your browser's built-in speech synthesis.
+      </p>
+      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+        <input type="password" id="openai-key-input"
+               placeholder="sk-…"
+               style="flex:1;min-width:200px;padding:0.55rem 0.85rem;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-family:monospace;outline:none">
+        <button class="btn" id="openai-key-save-btn" style="white-space:nowrap">Save key</button>
+        <button class="action-btn" id="openai-key-clear-btn">Clear</button>
+      </div>
+      <p id="openai-key-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
+    </div>
   </section>
 
   <!-- ② Unsplash: topic selection -->
@@ -1283,9 +1303,12 @@
   let contentPromise          = null;   // in-flight Promise or null
   let contentSettled          = false;  // true once contentPromise has resolved
 
-  // ── API key (stored in localStorage) ─────────────────────────────
+  // ── API keys (stored in localStorage) ────────────────────────────
   function getAnthropicKey() {
     return localStorage.getItem('c1_anthropic_key') || null;
+  }
+  function getOpenAIKey() {
+    return localStorage.getItem('c1_openai_key') || null;
   }
 
   // ── Loading overlay ───────────────────────────────────────────────
@@ -1429,9 +1452,24 @@ Respond with valid JSON only, no markdown fences:
   }
   updateKeyStatus();
 
+  function updateOpenAIKeyStatus() {
+    const el  = document.getElementById('openai-key-status');
+    const key = getOpenAIKey();
+    if (key) {
+      el.textContent = '✓ Key saved (ends …' + key.slice(-4) + '). OpenAI TTS is enabled.';
+      el.style.color = '#276749';
+    } else {
+      el.textContent = 'No key saved. The app will use browser built-in speech synthesis.';
+      el.style.color = '#718096';
+    }
+  }
+  updateOpenAIKeyStatus();
+
   document.getElementById('open-settings-btn').addEventListener('click', () => {
     document.getElementById('api-key-input').value = '';
+    document.getElementById('openai-key-input').value = '';
     updateKeyStatus();
+    updateOpenAIKeyStatus();
     showOnly('api-settings-section');
   });
   document.getElementById('settings-back-btn').addEventListener('click', () => showOnly('mode-section'));
@@ -1447,6 +1485,57 @@ Respond with valid JSON only, no markdown fences:
     document.getElementById('api-key-input').value = '';
     updateKeyStatus();
   });
+  document.getElementById('openai-key-save-btn').addEventListener('click', () => {
+    const val = document.getElementById('openai-key-input').value.trim();
+    if (!val) return;
+    localStorage.setItem('c1_openai_key', val);
+    document.getElementById('openai-key-input').value = '';
+    updateOpenAIKeyStatus();
+  });
+  document.getElementById('openai-key-clear-btn').addEventListener('click', () => {
+    localStorage.removeItem('c1_openai_key');
+    document.getElementById('openai-key-input').value = '';
+    updateOpenAIKeyStatus();
+  });
+
+  // ── OpenAI TTS helper ─────────────────────────────────────────────
+  // Returns a ready-to-play Audio element (metadata loaded, duration known).
+  // Returns null if no OpenAI key is set — caller should fall back to Web Speech API.
+  async function openAITTS(text, voice) {
+    const key = getOpenAIKey();
+    if (!key) return null;
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'tts-1', input: text, voice, response_format: 'mp3' }),
+    });
+    if (!response.ok) throw new Error(`OpenAI TTS ${response.status}`);
+    const blob    = new Blob([await response.arrayBuffer()], { type: 'audio/mpeg' });
+    const blobURL = URL.createObjectURL(blob);
+    const audio   = new Audio(blobURL);
+    await new Promise((resolve, reject) => {
+      audio.addEventListener('loadedmetadata', resolve, { once: true });
+      audio.addEventListener('error', reject, { once: true });
+    });
+    audio.addEventListener('ended', () => URL.revokeObjectURL(blobURL), { once: true });
+    return audio;
+  }
+
+  // ── Time-based word reveal ────────────────────────────────────────
+  // Reveals text word-by-word evenly over `duration` seconds into `targetEl`.
+  // Returns the interval ID so the caller can clear it on stop/skip.
+  function startWordReveal(text, duration, targetEl) {
+    const words    = text.split(/\s+/);
+    const msPerWord = (duration * 1000) / words.length;
+    let revealed   = 0;
+    const id = setInterval(() => {
+      revealed++;
+      targetEl.textContent = words.slice(0, revealed).join(' ');
+      targetEl.scrollTop   = targetEl.scrollHeight;
+      if (revealed >= words.length) clearInterval(id);
+    }, msPerWord);
+    return id;
+  }
 
   const TOPICS = [
     { label: 'Technology',    emoji: '💻', query: 'technology' },
@@ -1759,6 +1848,9 @@ Respond with valid JSON only, no markdown fences:
   const epStartBtn  = document.getElementById('ep-start-btn');
 
   let epUtterance     = null;
+  let epAudio         = null;
+  let epWordRevealId  = null;
+  let epTtsAborted    = false;
   let epTimerInterval = null;
   let epSeconds       = 0;
 
@@ -1817,13 +1909,8 @@ Respond with valid JSON only, no markdown fences:
     startEpSpeech(data.task);
   }
 
-  function startEpSpeech(text) {
-    if (!window.speechSynthesis) {
-      epPromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
-      revealEpStartBtn();
-      return;
-    }
-
+  async function startEpSpeech(text) {
+    epTtsAborted = false;
     epTimerInterval = setInterval(() => {
       epSeconds++;
       const m = Math.floor(epSeconds / 60);
@@ -1832,43 +1919,52 @@ Respond with valid JSON only, no markdown fences:
       epTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(epSeconds / 60, 1));
     }, 1000);
 
+    let audio = null;
+    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    if (epTtsAborted) { if (audio) audio.pause(); return; }
+
+    if (audio) {
+      epAudio        = audio;
+      epWordRevealId = startWordReveal(text, audio.duration, epPromptBox);
+      audio.play();
+      const done = () => {
+        clearInterval(epTimerInterval); epTimerInterval = null;
+        if (epWordRevealId) { clearInterval(epWordRevealId); epWordRevealId = null; }
+        epPromptBox.textContent = text;
+        revealEpStartBtn();
+      };
+      audio.addEventListener('ended', done, { once: true });
+      audio.addEventListener('error', done, { once: true });
+      return;
+    }
+
+    // Fallback: Web Speech API
+    if (!window.speechSynthesis) {
+      epPromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
+      clearInterval(epTimerInterval); epTimerInterval = null;
+      revealEpStartBtn();
+      return;
+    }
     epUtterance = new SpeechSynthesisUtterance(text);
-    epUtterance.lang  = 'en-GB';
-    epUtterance.rate  = 0.95;
-
-    const assignVoice = () => {
+    epUtterance.lang = 'en-GB'; epUtterance.rate = 0.95;
+    const epAssign = () => {
       const voices = window.speechSynthesis.getVoices();
-      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
-                  || voices.find(v => v.lang === 'en-GB')
-                  || voices.find(v => v.lang.startsWith('en'));
-      if (voice) epUtterance.voice = voice;
+      const v = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      if (v) epUtterance.voice = v;
     };
-    if (window.speechSynthesis.getVoices().length) assignVoice();
-    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
-
-    epUtterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        epPromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
-        epPromptBox.scrollTop = epPromptBox.scrollHeight;
-      }
-    };
-    epUtterance.onend = () => {
-      clearInterval(epTimerInterval); epTimerInterval = null;
-      epPromptBox.textContent = text;
-      revealEpStartBtn();
-    };
-    epUtterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      clearInterval(epTimerInterval); epTimerInterval = null;
-      epPromptBox.textContent = text;
-      revealEpStartBtn();
-    };
-
+    if (window.speechSynthesis.getVoices().length) epAssign();
+    else window.speechSynthesis.onvoiceschanged = () => { epAssign(); window.speechSynthesis.onvoiceschanged = null; };
+    epUtterance.onboundary = (e) => { if (e.name === 'word') { epPromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1)); epPromptBox.scrollTop = epPromptBox.scrollHeight; } };
+    epUtterance.onend = () => { clearInterval(epTimerInterval); epTimerInterval = null; epPromptBox.textContent = text; revealEpStartBtn(); };
+    epUtterance.onerror = (e) => { if (e.error === 'interrupted' || e.error === 'canceled') return; clearInterval(epTimerInterval); epTimerInterval = null; epPromptBox.textContent = text; revealEpStartBtn(); };
     window.speechSynthesis.speak(epUtterance);
   }
 
   function stopEpSpeech() {
+    epTtsAborted = true;
     clearInterval(epTimerInterval); epTimerInterval = null;
+    if (epWordRevealId) { clearInterval(epWordRevealId); epWordRevealId = null; }
+    if (epAudio) { epAudio.pause(); epAudio = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     epUtterance = null;
   }
@@ -1888,6 +1984,9 @@ Respond with valid JSON only, no markdown fences:
   const SA_LIMIT      = 30;
 
   let saUtterance     = null;
+  let saAudio         = null;
+  let saWordRevealId  = null;
+  let saTtsAborted    = false;
   let saTimerInterval = null;
   let saSeconds       = 0;
 
@@ -1929,13 +2028,8 @@ Respond with valid JSON only, no markdown fences:
     startSaSpeech(data.answer2nd);
   }
 
-  function startSaSpeech(text) {
-    if (!window.speechSynthesis) {
-      saAnswerBox.textContent = text + '\n\n(Text-to-speech not supported — read the response above and click Skip.)';
-      revealSaContinueBtn();
-      return;
-    }
-
+  async function startSaSpeech(text) {
+    saTtsAborted = false;
     saTimerInterval = setInterval(() => {
       saSeconds++;
       const m = Math.floor(saSeconds / 60);
@@ -1944,43 +2038,52 @@ Respond with valid JSON only, no markdown fences:
       saTimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(saSeconds / SA_LIMIT, 1));
     }, 1000);
 
+    let audio = null;
+    try { audio = await openAITTS(text, 'nova'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    if (saTtsAborted) { if (audio) audio.pause(); return; }
+
+    if (audio) {
+      saAudio        = audio;
+      saWordRevealId = startWordReveal(text, audio.duration, saAnswerBox);
+      audio.play();
+      const done = () => {
+        clearInterval(saTimerInterval); saTimerInterval = null;
+        if (saWordRevealId) { clearInterval(saWordRevealId); saWordRevealId = null; }
+        saAnswerBox.textContent = text;
+        revealSaContinueBtn();
+      };
+      audio.addEventListener('ended', done, { once: true });
+      audio.addEventListener('error', done, { once: true });
+      return;
+    }
+
+    // Fallback: Web Speech API
+    if (!window.speechSynthesis) {
+      saAnswerBox.textContent = text + '\n\n(Text-to-speech not supported — read the response above and click Skip.)';
+      clearInterval(saTimerInterval); saTimerInterval = null;
+      revealSaContinueBtn();
+      return;
+    }
     saUtterance = new SpeechSynthesisUtterance(text);
-    saUtterance.lang = 'en-GB';
-    saUtterance.rate = 0.95;
-
-    const assignVoice = () => {
+    saUtterance.lang = 'en-GB'; saUtterance.rate = 0.95;
+    const saAssign = () => {
       const voices = window.speechSynthesis.getVoices();
-      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
-                  || voices.find(v => v.lang === 'en-GB')
-                  || voices.find(v => v.lang.startsWith('en'));
-      if (voice) saUtterance.voice = voice;
+      const v = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      if (v) saUtterance.voice = v;
     };
-    if (window.speechSynthesis.getVoices().length) assignVoice();
-    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
-
-    saUtterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        saAnswerBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
-        saAnswerBox.scrollTop = saAnswerBox.scrollHeight;
-      }
-    };
-    saUtterance.onend = () => {
-      clearInterval(saTimerInterval); saTimerInterval = null;
-      saAnswerBox.textContent = text;
-      revealSaContinueBtn();
-    };
-    saUtterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      clearInterval(saTimerInterval); saTimerInterval = null;
-      saAnswerBox.textContent = text;
-      revealSaContinueBtn();
-    };
-
+    if (window.speechSynthesis.getVoices().length) saAssign();
+    else window.speechSynthesis.onvoiceschanged = () => { saAssign(); window.speechSynthesis.onvoiceschanged = null; };
+    saUtterance.onboundary = (e) => { if (e.name === 'word') { saAnswerBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1)); saAnswerBox.scrollTop = saAnswerBox.scrollHeight; } };
+    saUtterance.onend = () => { clearInterval(saTimerInterval); saTimerInterval = null; saAnswerBox.textContent = text; revealSaContinueBtn(); };
+    saUtterance.onerror = (e) => { if (e.error === 'interrupted' || e.error === 'canceled') return; clearInterval(saTimerInterval); saTimerInterval = null; saAnswerBox.textContent = text; revealSaContinueBtn(); };
     window.speechSynthesis.speak(saUtterance);
   }
 
   function stopSaSpeech() {
+    saTtsAborted = true;
     clearInterval(saTimerInterval); saTimerInterval = null;
+    if (saWordRevealId) { clearInterval(saWordRevealId); saWordRevealId = null; }
+    if (saAudio) { saAudio.pause(); saAudio = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     saUtterance = null;
   }
@@ -2555,6 +2658,9 @@ Respond with valid JSON only, no markdown fences:
   let secondChosen          = [];
   let appSpeechText         = '';
   let appSpeechSeconds      = 0;
+  let currentAudio          = null;
+  let appWordRevealId       = null;
+  let appTtsAborted         = false;
   let secondUserSeconds     = 0;
   let secondTimerInterval   = null;
   let secondFinalTranscript = '';
@@ -2616,13 +2722,8 @@ Respond with valid JSON only, no markdown fences:
   }
 
   // ── App speaking (TTS) ───────────────────────────────────────────
-  function startAppSpeech() {
-    if (!window.speechSynthesis) {
-      listenTranscriptBox.textContent = appSpeechText + '\n\n(Text-to-speech not supported in this browser — read the transcript above and click Skip when ready.)';
-      return;
-    }
-
-    // Timer counting up
+  async function startAppSpeech() {
+    appTtsAborted = false;
     secondTimerInterval = setInterval(() => {
       appSpeechSeconds++;
       const progress = Math.min(appSpeechSeconds / SECOND_LISTEN_LIMIT, 1);
@@ -2632,56 +2733,56 @@ Respond with valid JSON only, no markdown fences:
       listenTimerText.textContent = `${m}:${s.toString().padStart(2, '0')}`;
     }, 1000);
 
-    currentUtterance = new SpeechSynthesisUtterance(appSpeechText);
-    currentUtterance.lang = 'en-GB';
-    currentUtterance.rate = 0.95;
+    let audio = null;
+    try { audio = await openAITTS(appSpeechText, 'nova'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    if (appTtsAborted) { if (audio) audio.pause(); return; }
 
-    // Pick best voice
-    const assignVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
-                  || voices.find(v => v.lang === 'en-GB')
-                  || voices.find(v => v.lang.startsWith('en'));
-      if (voice) currentUtterance.voice = voice;
-    };
-
-    if (window.speechSynthesis.getVoices().length) {
-      assignVoice();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
+    if (audio) {
+      currentAudio    = audio;
+      appWordRevealId = startWordReveal(appSpeechText, audio.duration, listenTranscriptBox);
+      audio.play();
+      const done = () => {
+        clearInterval(secondTimerInterval); secondTimerInterval = null;
+        if (appWordRevealId) { clearInterval(appWordRevealId); appWordRevealId = null; }
+        listenTranscriptBox.textContent = appSpeechText;
+        setTimeout(() => showExaminerQuestion2nd(), 1500);
+      };
+      audio.addEventListener('ended', done, { once: true });
+      audio.addEventListener('error', () => {
+        clearInterval(secondTimerInterval); secondTimerInterval = null;
+        if (appWordRevealId) { clearInterval(appWordRevealId); appWordRevealId = null; }
+        listenTranscriptBox.textContent = appSpeechText;
+        showExaminerQuestion2nd();
+      }, { once: true });
+      return;
     }
 
-    // Word-by-word transcript reveal
-    currentUtterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        const revealed = appSpeechText.slice(0, e.charIndex + (e.charLength || 1));
-        listenTranscriptBox.textContent = revealed;
-        listenTranscriptBox.scrollTop = listenTranscriptBox.scrollHeight;
-      }
+    // Fallback: Web Speech API
+    if (!window.speechSynthesis) {
+      listenTranscriptBox.textContent = appSpeechText + '\n\n(Text-to-speech not supported in this browser — read the transcript above and click Skip when ready.)';
+      clearInterval(secondTimerInterval); secondTimerInterval = null;
+      return;
+    }
+    currentUtterance = new SpeechSynthesisUtterance(appSpeechText);
+    currentUtterance.lang = 'en-GB'; currentUtterance.rate = 0.95;
+    const appAssign = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const v = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      if (v) currentUtterance.voice = v;
     };
-
-    currentUtterance.onend = () => {
-      clearInterval(secondTimerInterval);
-      secondTimerInterval = null;
-      listenTranscriptBox.textContent = appSpeechText;
-      setTimeout(() => showExaminerQuestion2nd(), 1500);
-    };
-
-    currentUtterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      console.warn('TTS error:', e.error);
-      clearInterval(secondTimerInterval);
-      secondTimerInterval = null;
-      listenTranscriptBox.textContent = appSpeechText;
-      showExaminerQuestion2nd();
-    };
-
+    if (window.speechSynthesis.getVoices().length) appAssign();
+    else window.speechSynthesis.onvoiceschanged = () => { appAssign(); window.speechSynthesis.onvoiceschanged = null; };
+    currentUtterance.onboundary = (e) => { if (e.name === 'word') { listenTranscriptBox.textContent = appSpeechText.slice(0, e.charIndex + (e.charLength || 1)); listenTranscriptBox.scrollTop = listenTranscriptBox.scrollHeight; } };
+    currentUtterance.onend = () => { clearInterval(secondTimerInterval); secondTimerInterval = null; listenTranscriptBox.textContent = appSpeechText; setTimeout(() => showExaminerQuestion2nd(), 1500); };
+    currentUtterance.onerror = (e) => { if (e.error === 'interrupted' || e.error === 'canceled') return; clearInterval(secondTimerInterval); secondTimerInterval = null; listenTranscriptBox.textContent = appSpeechText; showExaminerQuestion2nd(); };
     window.speechSynthesis.speak(currentUtterance);
   }
 
   function stopAppSpeech() {
-    clearInterval(secondTimerInterval);
-    secondTimerInterval = null;
+    appTtsAborted = true;
+    clearInterval(secondTimerInterval); secondTimerInterval = null;
+    if (appWordRevealId) { clearInterval(appWordRevealId); appWordRevealId = null; }
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     currentUtterance = null;
   }
@@ -2861,6 +2962,9 @@ Respond with valid JSON only, no markdown fences:
   const ep2ContinueBtn = document.getElementById('ep2-continue-btn');
 
   let ep2Utterance     = null;
+  let ep2Audio         = null;
+  let ep2WordRevealId  = null;
+  let ep2TtsAborted    = false;
   let ep2TimerInterval = null;
   let ep2Seconds       = 0;
 
@@ -2908,13 +3012,8 @@ Respond with valid JSON only, no markdown fences:
     startEp2Speech(data.task);
   }
 
-  function startEp2Speech(text) {
-    if (!window.speechSynthesis) {
-      ep2PromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
-      revealEp2ContinueBtn();
-      return;
-    }
-
+  async function startEp2Speech(text) {
+    ep2TtsAborted = false;
     ep2TimerInterval = setInterval(() => {
       ep2Seconds++;
       const m = Math.floor(ep2Seconds / 60);
@@ -2923,43 +3022,52 @@ Respond with valid JSON only, no markdown fences:
       ep2TimerRing.style.strokeDashoffset = CIRCUMFERENCE * (1 - Math.min(ep2Seconds / 60, 1));
     }, 1000);
 
+    let audio = null;
+    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    if (ep2TtsAborted) { if (audio) audio.pause(); return; }
+
+    if (audio) {
+      ep2Audio        = audio;
+      ep2WordRevealId = startWordReveal(text, audio.duration, ep2PromptBox);
+      audio.play();
+      const done = () => {
+        clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+        if (ep2WordRevealId) { clearInterval(ep2WordRevealId); ep2WordRevealId = null; }
+        ep2PromptBox.textContent = text;
+        revealEp2ContinueBtn();
+      };
+      audio.addEventListener('ended', done, { once: true });
+      audio.addEventListener('error', done, { once: true });
+      return;
+    }
+
+    // Fallback: Web Speech API
+    if (!window.speechSynthesis) {
+      ep2PromptBox.textContent = text + '\n\n(Text-to-speech not supported — read the prompt above and click Skip.)';
+      clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+      revealEp2ContinueBtn();
+      return;
+    }
     ep2Utterance = new SpeechSynthesisUtterance(text);
-    ep2Utterance.lang = 'en-GB';
-    ep2Utterance.rate = 0.95;
-
-    const assignVoice = () => {
+    ep2Utterance.lang = 'en-GB'; ep2Utterance.rate = 0.95;
+    const ep2Assign = () => {
       const voices = window.speechSynthesis.getVoices();
-      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
-                  || voices.find(v => v.lang === 'en-GB')
-                  || voices.find(v => v.lang.startsWith('en'));
-      if (voice) ep2Utterance.voice = voice;
+      const v = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      if (v) ep2Utterance.voice = v;
     };
-    if (window.speechSynthesis.getVoices().length) assignVoice();
-    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
-
-    ep2Utterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        ep2PromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
-        ep2PromptBox.scrollTop = ep2PromptBox.scrollHeight;
-      }
-    };
-    ep2Utterance.onend = () => {
-      clearInterval(ep2TimerInterval); ep2TimerInterval = null;
-      ep2PromptBox.textContent = text;
-      revealEp2ContinueBtn();
-    };
-    ep2Utterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      clearInterval(ep2TimerInterval); ep2TimerInterval = null;
-      ep2PromptBox.textContent = text;
-      revealEp2ContinueBtn();
-    };
-
+    if (window.speechSynthesis.getVoices().length) ep2Assign();
+    else window.speechSynthesis.onvoiceschanged = () => { ep2Assign(); window.speechSynthesis.onvoiceschanged = null; };
+    ep2Utterance.onboundary = (e) => { if (e.name === 'word') { ep2PromptBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1)); ep2PromptBox.scrollTop = ep2PromptBox.scrollHeight; } };
+    ep2Utterance.onend = () => { clearInterval(ep2TimerInterval); ep2TimerInterval = null; ep2PromptBox.textContent = text; revealEp2ContinueBtn(); };
+    ep2Utterance.onerror = (e) => { if (e.error === 'interrupted' || e.error === 'canceled') return; clearInterval(ep2TimerInterval); ep2TimerInterval = null; ep2PromptBox.textContent = text; revealEp2ContinueBtn(); };
     window.speechSynthesis.speak(ep2Utterance);
   }
 
   function stopEp2Speech() {
+    ep2TtsAborted = true;
     clearInterval(ep2TimerInterval); ep2TimerInterval = null;
+    if (ep2WordRevealId) { clearInterval(ep2WordRevealId); ep2WordRevealId = null; }
+    if (ep2Audio) { ep2Audio.pause(); ep2Audio = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     ep2Utterance = null;
   }
@@ -2976,7 +3084,10 @@ Respond with valid JSON only, no markdown fences:
   const eq2QuestionBox = document.getElementById('eq2-question-box');
   const eq2StartBtn    = document.getElementById('eq2-start-btn');
 
-  let eq2Utterance = null;
+  let eq2Utterance    = null;
+  let eq2Audio        = null;
+  let eq2WordRevealId = null;
+  let eq2TtsAborted   = false;
 
   document.getElementById('eq2-skip-btn').addEventListener('click', () => {
     stopEq2Speech();
@@ -3012,46 +3123,52 @@ Respond with valid JSON only, no markdown fences:
     startEq2Speech(questionText);
   }
 
-  function startEq2Speech(text) {
+  async function startEq2Speech(text) {
+    eq2TtsAborted = false;
+
+    let audio = null;
+    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    if (eq2TtsAborted) { if (audio) audio.pause(); return; }
+
+    if (audio) {
+      eq2Audio        = audio;
+      eq2WordRevealId = startWordReveal(text, audio.duration, eq2QuestionBox);
+      audio.play();
+      const done = () => {
+        if (eq2WordRevealId) { clearInterval(eq2WordRevealId); eq2WordRevealId = null; }
+        eq2QuestionBox.textContent = text;
+        revealEq2StartBtn();
+      };
+      audio.addEventListener('ended', done, { once: true });
+      audio.addEventListener('error', done, { once: true });
+      return;
+    }
+
+    // Fallback: Web Speech API
     if (!window.speechSynthesis) {
       eq2QuestionBox.textContent = text + '\n\n(Text-to-speech not supported — read the question above and click Skip.)';
       revealEq2StartBtn();
       return;
     }
-
     eq2Utterance = new SpeechSynthesisUtterance(text);
-    eq2Utterance.lang = 'en-GB';
-    eq2Utterance.rate = 0.95;
-
-    const assignVoice = () => {
+    eq2Utterance.lang = 'en-GB'; eq2Utterance.rate = 0.95;
+    const eq2Assign = () => {
       const voices = window.speechSynthesis.getVoices();
-      const voice  = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google'))
-                  || voices.find(v => v.lang === 'en-GB')
-                  || voices.find(v => v.lang.startsWith('en'));
-      if (voice) eq2Utterance.voice = voice;
+      const v = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('google')) || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      if (v) eq2Utterance.voice = v;
     };
-    if (window.speechSynthesis.getVoices().length) assignVoice();
-    else window.speechSynthesis.onvoiceschanged = () => { assignVoice(); window.speechSynthesis.onvoiceschanged = null; };
-
-    eq2Utterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        eq2QuestionBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1));
-      }
-    };
-    eq2Utterance.onend = () => {
-      eq2QuestionBox.textContent = text;
-      revealEq2StartBtn();
-    };
-    eq2Utterance.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      eq2QuestionBox.textContent = text;
-      revealEq2StartBtn();
-    };
-
+    if (window.speechSynthesis.getVoices().length) eq2Assign();
+    else window.speechSynthesis.onvoiceschanged = () => { eq2Assign(); window.speechSynthesis.onvoiceschanged = null; };
+    eq2Utterance.onboundary = (e) => { if (e.name === 'word') { eq2QuestionBox.textContent = text.slice(0, e.charIndex + (e.charLength || 1)); } };
+    eq2Utterance.onend = () => { eq2QuestionBox.textContent = text; revealEq2StartBtn(); };
+    eq2Utterance.onerror = (e) => { if (e.error === 'interrupted' || e.error === 'canceled') return; eq2QuestionBox.textContent = text; revealEq2StartBtn(); };
     window.speechSynthesis.speak(eq2Utterance);
   }
 
   function stopEq2Speech() {
+    eq2TtsAborted = true;
+    if (eq2WordRevealId) { clearInterval(eq2WordRevealId); eq2WordRevealId = null; }
+    if (eq2Audio) { eq2Audio.pause(); eq2Audio = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     eq2Utterance = null;
   }
