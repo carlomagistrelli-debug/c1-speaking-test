@@ -1261,8 +1261,9 @@
     </div>
 
     <div class="assess-block">
-      <p class="assess-block-title">Language highlights <span class="assess-hint">(C1 expressions &amp; structures from this topic)</span></p>
+      <p class="assess-block-title">Language highlights <span class="assess-hint">(C1 features in your speech)</span></p>
       <div id="assess-lang-highlights"></div>
+      <button class="btn secondary-btn" id="assess-highlights-btn" style="margin-top:0.6rem">Analyse my language</button>
     </div>
 
     <div class="result-actions">
@@ -3066,6 +3067,7 @@ Respond with valid JSON only, no markdown fences:
   let assessmentRole        = '';
   let assessmentTranscript  = '';
   let assessmentDurationSecs = 0;
+  let highlightDownloadLines = null;
 
   document.getElementById('assess-restart-btn').addEventListener('click', () => showOnly('mode-section'));
   document.getElementById('assess-download-btn').addEventListener('click', downloadAssessment);
@@ -3162,8 +3164,11 @@ Respond with valid JSON only, no markdown fences:
       });
     };
 
-    renderNotes('Compare-contrast speech', getLangNotes('speech', currentTopic));
-    renderNotes('Model 2nd-candidate answer', getLangNotes('answer', currentTopic));
+    hlEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">Press "Analyse my language" to get C1 feedback on your speech.</p>';
+    highlightDownloadLines = null;
+    const hlBtn = document.getElementById('assess-highlights-btn');
+    hlBtn.disabled = false;
+    hlBtn.textContent = 'Analyse my language';
 
     // ── Reset correction block for new session ─────────────────────
     document.getElementById('assess-correction-result').innerHTML = '';
@@ -3293,6 +3298,134 @@ Respond with valid JSON only, no markdown fences:
     }
   });
 
+  // ── Language highlights via Claude API ────────────────────────────
+  document.getElementById('assess-highlights-btn').addEventListener('click', async () => {
+    const key = getAnthropicKey();
+    const hlEl = document.getElementById('assess-lang-highlights');
+    const btn  = document.getElementById('assess-highlights-btn');
+
+    const text = assessmentTranscript;
+    if (!text || text === '(No speech detected)') {
+      hlEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">No transcript to analyse.</p>';
+      return;
+    }
+
+    if (!key) {
+      // fallback: show static topic notes
+      const renderNotes = (title, notes) => {
+        const subtitle = document.createElement('p');
+        subtitle.className = 'lang-notes-subtitle';
+        subtitle.textContent = title;
+        hlEl.appendChild(subtitle);
+        notes.forEach(({ expression, note }) => {
+          const div = document.createElement('div');
+          div.className = 'lang-highlight';
+          div.innerHTML =
+            `<div class="lang-expression">${expression}</div>` +
+            `<div class="lang-note">${note}</div>`;
+          hlEl.appendChild(div);
+        });
+      };
+      hlEl.innerHTML = '<p style="color:#718096;font-size:0.85rem;font-style:italic">No API key — showing reference expressions for this topic.</p>';
+      const noteType = assessmentRole === '1st' ? 'speech' : 'answer';
+      const noteTitle = assessmentRole === '1st' ? 'Compare-contrast speech (reference)' : 'Model 2nd-candidate answer (reference)';
+      renderNotes(noteTitle, getLangNotes(noteType, currentTopic));
+      highlightDownloadLines = [noteTitle, ...getLangNotes(noteType, currentTopic).map((n, i) => `${i+1}. ${n.expression}\n   → ${n.note}`)];
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analysing…';
+    hlEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">Analysing your language…</p>';
+
+    const roleDesc = assessmentRole === '1st'
+      ? 'a 1-minute compare-and-contrast task about two images'
+      : 'a 30-second follow-up question in a Cambridge C1 Speaking Test';
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key':                              key,
+          'anthropic-version':                      '2023-06-01',
+          'content-type':                           'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 900,
+          messages: [{
+            role: 'user',
+            content:
+`You are a Cambridge C1 Speaking examiner analysing a candidate's spoken English.
+The candidate was doing ${roleDesc}.
+
+Candidate's transcript:
+---
+${text}
+---
+
+Identify:
+1. Up to 4 C1-level expressions or structures the candidate used well (quote them exactly from the transcript).
+2. Up to 3 C1-level expressions or structures they COULD have used but didn't (suggest alternatives for phrases they used).
+
+Respond with valid JSON only, no markdown fences:
+{
+  "used_well": [
+    { "expression": "exact quote from transcript", "note": "why this is C1-level" }
+  ],
+  "could_use": [
+    { "expression": "suggested C1 expression", "note": "instead of what they said, and why this is better" }
+  ]
+}`
+          }],
+        }),
+      });
+
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const data = await resp.json();
+      const raw  = (data.content?.[0]?.text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch { throw new Error('Could not parse response'); }
+
+      hlEl.innerHTML = '';
+      const lines = [];
+
+      const renderSection = (title, items) => {
+        if (!items || items.length === 0) return;
+        const subtitle = document.createElement('p');
+        subtitle.className = 'lang-notes-subtitle';
+        subtitle.textContent = title;
+        hlEl.appendChild(subtitle);
+        lines.push(title);
+        items.forEach(({ expression, note }, i) => {
+          const div = document.createElement('div');
+          div.className = 'lang-highlight';
+          div.innerHTML =
+            `<div class="lang-expression">${expression}</div>` +
+            `<div class="lang-note">${note}</div>`;
+          hlEl.appendChild(div);
+          lines.push(`${i+1}. ${expression}\n   → ${note}`);
+        });
+        lines.push('');
+      };
+
+      renderSection('Used well', parsed.used_well);
+      renderSection('Could use', parsed.could_use);
+      if (!hlEl.children.length) hlEl.innerHTML = '<p class="correction-none">No notable features found.</p>';
+
+      highlightDownloadLines = lines;
+      btn.textContent = 'Re-analyse';
+      btn.disabled = false;
+
+    } catch (err) {
+      hlEl.innerHTML = `<p style="color:#c53030;font-size:0.9rem">Error: ${err.message}</p>`;
+      btn.textContent = 'Analyse my language';
+      btn.disabled = false;
+    }
+  });
+
   function updateAssessmentSummary() {
     const selected = document.querySelectorAll('.scale-band-btn.selected');
     if (selected.length < SCALES.length) return;
@@ -3366,13 +3499,9 @@ Respond with valid JSON only, no markdown fences:
       ``,
       `\u2500\u2500\u2500 LANGUAGE HIGHLIGHTS \u2500\u2500\u2500`,
       ``,
-      `Compare-contrast speech`,
-      ...getLangNotes('speech', currentTopic).map((n, i) =>
-        `${i + 1}. ${n.expression}\n   \u2192 ${n.note}`),
-      ``,
-      `Model 2nd-candidate answer`,
-      ...getLangNotes('answer', currentTopic).map((n, i) =>
-        `${i + 1}. ${n.expression}\n   \u2192 ${n.note}`),
+      ...(highlightDownloadLines
+        ? highlightDownloadLines
+        : ['(Press "Analyse my language" before downloading to include this section.)']),
     ].filter(l => l !== null).join('\n');
 
     const blob = new Blob([lines], { type: 'text/plain' });
