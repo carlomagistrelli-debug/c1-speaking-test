@@ -2050,7 +2050,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(text, 'nova', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(text, 'fable', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (saTtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
@@ -2745,7 +2745,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(appSpeechText, 'nova', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(appSpeechText, 'fable', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (appTtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
