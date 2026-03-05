@@ -1501,13 +1501,24 @@ Respond with valid JSON only, no markdown fences:
   // ── OpenAI TTS helper ─────────────────────────────────────────────
   // Returns a ready-to-play Audio element (metadata loaded, duration known).
   // Returns null if no OpenAI key is set — caller should fall back to Web Speech API.
-  async function openAITTS(text, voice) {
+  const TTS_INSTRUCTIONS = {
+    examiner:  'Speak with a British Received Pronunciation accent. You are a calm, professional Cambridge examiner.',
+    candidate: 'Speak with a British Received Pronunciation accent. You are a confident, articulate C1-level English speaker.',
+  };
+
+  async function openAITTS(text, voice, role = 'examiner') {
     const key = getOpenAIKey();
     if (!key) return null;
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'tts-1', input: text, voice, response_format: 'mp3' }),
+      body: JSON.stringify({
+        model: 'gpt-4o-mini-tts',
+        input: text,
+        voice,
+        instructions: TTS_INSTRUCTIONS[role],
+        response_format: 'mp3',
+      }),
     });
     if (!response.ok) throw new Error(`OpenAI TTS ${response.status}`);
     const blob    = new Blob([await response.arrayBuffer()], { type: 'audio/mpeg' });
@@ -1920,7 +1931,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(text, 'onyx', 'examiner'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (epTtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
@@ -2039,7 +2050,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(text, 'nova'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(text, 'nova', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (saTtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
@@ -2734,7 +2745,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(appSpeechText, 'nova'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(appSpeechText, 'nova', 'candidate'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (appTtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
@@ -3023,7 +3034,7 @@ Respond with valid JSON only, no markdown fences:
     }, 1000);
 
     let audio = null;
-    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(text, 'onyx', 'examiner'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (ep2TtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
@@ -3127,7 +3138,7 @@ Respond with valid JSON only, no markdown fences:
     eq2TtsAborted = false;
 
     let audio = null;
-    try { audio = await openAITTS(text, 'onyx'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
+    try { audio = await openAITTS(text, 'onyx', 'examiner'); } catch (e) { console.warn('OpenAI TTS failed, falling back:', e); }
     if (eq2TtsAborted) { if (audio) audio.pause(); return; }
 
     if (audio) {
