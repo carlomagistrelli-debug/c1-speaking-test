@@ -810,57 +810,35 @@
       </div>
     </div>
     <p style="text-align:center;margin-top:1.4rem">
-      <button class="action-btn" id="open-settings-btn" style="font-size:0.82rem">&#9881; API key settings</button>
-      <span id="mode-api-indicator" style="display:none;font-size:0.78rem;color:#276749;margin-left:0.6rem;vertical-align:middle">&#10003; API key active</span>
+      <button class="action-btn" id="open-settings-btn" style="font-size:0.82rem">&#9881; Settings</button>
+      <span id="mode-api-indicator" style="display:none;font-size:0.78rem;color:#276749;margin-left:0.6rem;vertical-align:middle">&#10003; Password active</span>
     </p>
   </section>
 
-  <!-- ① API key settings -->
+  <!-- ① API settings -->
   <section id="api-settings-section">
     <div class="section-header">
-      <p class="step-label">API Key Settings</p>
+      <p class="step-label">Settings</p>
       <div class="header-actions">
         <button class="action-btn" id="settings-back-btn">&#8592; Back</button>
       </div>
     </div>
     <div class="assess-block">
-      <p class="assess-block-title">Anthropic API key</p>
+      <p class="assess-block-title">Access password</p>
       <p style="font-size:0.87rem;color:#4a5568;margin-bottom:1.1rem;line-height:1.6">
-        When a key is saved, the app uses Claude to analyse the actual photographs
-        and generate an examiner prompt, model speech, question and answer that
-        describe what is <em>genuinely visible</em> in your images.<br><br>
-        Your key is stored only in your browser's <code>localStorage</code> — it
-        is never sent to GitHub or any server other than Anthropic's API directly.
-        Without a key the app falls back to topic-based model texts.
+        Enter the shared password to enable AI features: image-specific content generation
+        (Claude), high-quality TTS voices (OpenAI), text correction and language analysis.<br><br>
+        Without a password the app falls back to built-in topic texts and browser speech synthesis.
+        The password is stored only in your browser's <code>localStorage</code>.
       </p>
       <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
-        <input type="password" id="api-key-input"
-               placeholder="sk-ant-…"
+        <input type="password" id="proxy-password-input"
+               placeholder="shared password"
                style="flex:1;min-width:200px;padding:0.55rem 0.85rem;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-family:monospace;outline:none">
-        <button class="btn" id="api-key-save-btn" style="white-space:nowrap">Save key</button>
-        <button class="action-btn" id="api-key-clear-btn">Clear</button>
+        <button class="btn" id="proxy-password-save-btn" style="white-space:nowrap">Save</button>
+        <button class="action-btn" id="proxy-password-clear-btn">Clear</button>
       </div>
-      <p id="api-key-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
-    </div>
-
-    <div class="assess-block" style="margin-top:1.2rem">
-      <p class="assess-block-title">OpenAI API key <span class="assess-hint">(for TTS voices)</span></p>
-      <p style="font-size:0.87rem;color:#4a5568;margin-bottom:1.1rem;line-height:1.6">
-        When set, the app uses OpenAI Text-to-Speech with two distinct voices:
-        <strong>onyx</strong> (deep male) for the examiner and <strong>nova</strong> (female) for
-        the candidate speech.<br><br>
-        Your key is stored only in your browser's <code>localStorage</code> — it is never
-        sent to GitHub or any server other than OpenAI's API directly.
-        Without a key the app falls back to your browser's built-in speech synthesis.
-      </p>
-      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
-        <input type="password" id="openai-key-input"
-               placeholder="sk-…"
-               style="flex:1;min-width:200px;padding:0.55rem 0.85rem;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-family:monospace;outline:none">
-        <button class="btn" id="openai-key-save-btn" style="white-space:nowrap">Save key</button>
-        <button class="action-btn" id="openai-key-clear-btn">Clear</button>
-      </div>
-      <p id="openai-key-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
+      <p id="proxy-password-status" style="margin-top:0.8rem;font-size:0.84rem;line-height:1.5"></p>
     </div>
   </section>
 
@@ -1260,7 +1238,7 @@
     </div>
 
     <div class="assess-block" id="assess-correction-block">
-      <p class="assess-block-title">Text correction <span class="assess-hint">(requires Anthropic API key)</span></p>
+      <p class="assess-block-title">Text correction <span class="assess-hint">(requires access password)</span></p>
       <button class="btn" id="assess-correct-btn">Correct my text</button>
       <div id="assess-correction-result"></div>
     </div>
@@ -1294,7 +1272,8 @@
 </div>
 
 <script>
-  const API_KEY = 'HNNl4DxhiNd3n4QeqFNk95pzwAEpiAKhqbiP4FvccZE';
+  const API_KEY   = 'HNNl4DxhiNd3n4QeqFNk95pzwAEpiAKhqbiP4FvccZE';
+  const PROXY_URL = 'https://cool-surf-bc74.carlo-magistrelli.workers.dev';
   const TOTAL  = 3;
   const CHOOSE = 2;
 
@@ -1303,12 +1282,9 @@
   let contentPromise          = null;   // in-flight Promise or null
   let contentSettled          = false;  // true once contentPromise has resolved
 
-  // ── API keys (stored in localStorage) ────────────────────────────
-  function getAnthropicKey() {
-    return localStorage.getItem('c1_anthropic_key') || null;
-  }
-  function getOpenAIKey() {
-    return localStorage.getItem('c1_openai_key') || null;
+  // ── Proxy password (stored in localStorage) ───────────────────────
+  function getProxyPassword() {
+    return localStorage.getItem('c1_proxy_password') || null;
   }
 
   // ── Loading overlay ───────────────────────────────────────────────
@@ -1357,19 +1333,17 @@
 
   // ── Call Claude vision API to generate image-specific content ─────
   async function generateDynamicContent(images) {
-    const key = getAnthropicKey();
-    if (!key) return null;
+    const pwd = getProxyPassword();
+    if (!pwd) return null;
     try {
       const [img1, img2] = images;
       const [src1, src2] = await Promise.all([imageToApiSource(img1), imageToApiSource(img2)]);
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(`${PROXY_URL}/anthropic`, {
         method: 'POST',
         headers: {
-          'x-api-key':                              key,
-          'anthropic-version':                      '2023-06-01',
-          'content-type':                           'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          'Authorization': `Bearer ${pwd}`,
+          'content-type':  'application/json',
         },
         body: JSON.stringify({
           model:      'claude-sonnet-4-6',
@@ -1419,7 +1393,7 @@ Respond with valid JSON only, no markdown fences:
   function startContentGeneration(images) {
     currentGeneratedContent = null;
     contentSettled          = false;
-    if (!getAnthropicKey()) { contentPromise = null; contentSettled = true; return; }
+    if (!getProxyPassword()) { contentPromise = null; contentSettled = true; return; }
     contentPromise = generateDynamicContent(images).then(result => {
       currentGeneratedContent = result;
       contentSettled = true;
@@ -1436,66 +1410,39 @@ Respond with valid JSON only, no markdown fences:
   }
 
   // ── Settings section ──────────────────────────────────────────────
-  function updateKeyStatus() {
-    const el  = document.getElementById('api-key-status');
+  function updatePasswordStatus() {
+    const el  = document.getElementById('proxy-password-status');
     const ind = document.getElementById('mode-api-indicator');
-    const key = getAnthropicKey();
-    if (key) {
-      el.textContent  = '✓ Key saved (ends …' + key.slice(-4) + '). Image-specific generation is enabled.';
+    const pwd = getProxyPassword();
+    if (pwd) {
+      el.textContent  = '✓ Password saved. AI features (dynamic content, TTS, text correction) are enabled.';
       el.style.color  = '#276749';
       ind.style.display = 'inline';
     } else {
-      el.textContent  = 'No key saved. The app will use built-in topic-based model texts.';
+      el.textContent  = 'No password set. The app will use built-in topic-based model texts and browser TTS.';
       el.style.color  = '#718096';
       ind.style.display = 'none';
     }
   }
-  updateKeyStatus();
-
-  function updateOpenAIKeyStatus() {
-    const el  = document.getElementById('openai-key-status');
-    const key = getOpenAIKey();
-    if (key) {
-      el.textContent = '✓ Key saved (ends …' + key.slice(-4) + '). OpenAI TTS is enabled.';
-      el.style.color = '#276749';
-    } else {
-      el.textContent = 'No key saved. The app will use browser built-in speech synthesis.';
-      el.style.color = '#718096';
-    }
-  }
-  updateOpenAIKeyStatus();
+  updatePasswordStatus();
 
   document.getElementById('open-settings-btn').addEventListener('click', () => {
-    document.getElementById('api-key-input').value = '';
-    document.getElementById('openai-key-input').value = '';
-    updateKeyStatus();
-    updateOpenAIKeyStatus();
+    document.getElementById('proxy-password-input').value = '';
+    updatePasswordStatus();
     showOnly('api-settings-section');
   });
   document.getElementById('settings-back-btn').addEventListener('click', () => showOnly('mode-section'));
-  document.getElementById('api-key-save-btn').addEventListener('click', () => {
-    const val = document.getElementById('api-key-input').value.trim();
+  document.getElementById('proxy-password-save-btn').addEventListener('click', () => {
+    const val = document.getElementById('proxy-password-input').value.trim();
     if (!val) return;
-    localStorage.setItem('c1_anthropic_key', val);
-    document.getElementById('api-key-input').value = '';
-    updateKeyStatus();
+    localStorage.setItem('c1_proxy_password', val);
+    document.getElementById('proxy-password-input').value = '';
+    updatePasswordStatus();
   });
-  document.getElementById('api-key-clear-btn').addEventListener('click', () => {
-    localStorage.removeItem('c1_anthropic_key');
-    document.getElementById('api-key-input').value = '';
-    updateKeyStatus();
-  });
-  document.getElementById('openai-key-save-btn').addEventListener('click', () => {
-    const val = document.getElementById('openai-key-input').value.trim();
-    if (!val) return;
-    localStorage.setItem('c1_openai_key', val);
-    document.getElementById('openai-key-input').value = '';
-    updateOpenAIKeyStatus();
-  });
-  document.getElementById('openai-key-clear-btn').addEventListener('click', () => {
-    localStorage.removeItem('c1_openai_key');
-    document.getElementById('openai-key-input').value = '';
-    updateOpenAIKeyStatus();
+  document.getElementById('proxy-password-clear-btn').addEventListener('click', () => {
+    localStorage.removeItem('c1_proxy_password');
+    document.getElementById('proxy-password-input').value = '';
+    updatePasswordStatus();
   });
 
   // ── OpenAI TTS helper ─────────────────────────────────────────────
@@ -1507,11 +1454,11 @@ Respond with valid JSON only, no markdown fences:
   };
 
   async function openAITTS(text, voice, role = 'examiner') {
-    const key = getOpenAIKey();
-    if (!key) return null;
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    const pwd = getProxyPassword();
+    if (!pwd) return null;
+    const response = await fetch(`${PROXY_URL}/openai-tts`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${pwd}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini-tts',
         input: text,
@@ -3309,10 +3256,10 @@ Respond with valid JSON only, no markdown fences:
 
   // ── Text correction via Claude API ────────────────────────────────
   document.getElementById('assess-correct-btn').addEventListener('click', async () => {
-    const key = getAnthropicKey();
-    if (!key) {
+    const pwd = getProxyPassword();
+    if (!pwd) {
       document.getElementById('assess-correction-result').innerHTML =
-        '<p style="color:#c53030;font-size:0.9rem">No Anthropic API key set — add it in the Settings panel.</p>';
+        '<p style="color:#c53030;font-size:0.9rem">Enter access password in Settings to use text correction.</p>';
       return;
     }
 
@@ -3330,13 +3277,11 @@ Respond with valid JSON only, no markdown fences:
       '<p style="color:#718096;font-size:0.9rem">Analysing your text…</p>';
 
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetch(`${PROXY_URL}/anthropic`, {
         method: 'POST',
         headers: {
-          'x-api-key':                              key,
-          'anthropic-version':                      '2023-06-01',
-          'content-type':                           'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          'Authorization': `Bearer ${pwd}`,
+          'content-type':  'application/json',
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
@@ -3428,7 +3373,7 @@ Respond with valid JSON only, no markdown fences:
 
   // ── Language highlights via Claude API ────────────────────────────
   document.getElementById('assess-highlights-btn').addEventListener('click', async () => {
-    const key = getAnthropicKey();
+    const pwd  = getProxyPassword();
     const hlEl = document.getElementById('assess-lang-highlights');
     const btn  = document.getElementById('assess-highlights-btn');
 
@@ -3438,7 +3383,7 @@ Respond with valid JSON only, no markdown fences:
       return;
     }
 
-    if (!key) {
+    if (!pwd) {
       // fallback: show static topic notes
       const renderNotes = (title, notes) => {
         const subtitle = document.createElement('p');
@@ -3454,7 +3399,7 @@ Respond with valid JSON only, no markdown fences:
           hlEl.appendChild(div);
         });
       };
-      hlEl.innerHTML = '<p style="color:#718096;font-size:0.85rem;font-style:italic">No API key — showing reference expressions for this topic.</p>';
+      hlEl.innerHTML = '<p style="color:#718096;font-size:0.85rem;font-style:italic">No access password set — showing reference expressions for this topic.</p>';
       const noteType = assessmentRole === '1st' ? 'speech' : 'answer';
       const noteTitle = assessmentRole === '1st' ? 'Compare-contrast speech (reference)' : 'Model 2nd-candidate answer (reference)';
       renderNotes(noteTitle, getLangNotes(noteType, currentTopic));
@@ -3471,13 +3416,11 @@ Respond with valid JSON only, no markdown fences:
       : 'a 30-second follow-up question in a Cambridge C1 Speaking Test';
 
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetch(`${PROXY_URL}/anthropic`, {
         method: 'POST',
         headers: {
-          'x-api-key':                              key,
-          'anthropic-version':                      '2023-06-01',
-          'content-type':                           'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          'Authorization': `Bearer ${pwd}`,
+          'content-type':  'application/json',
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
