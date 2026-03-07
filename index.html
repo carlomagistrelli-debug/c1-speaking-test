@@ -1264,6 +1264,13 @@
       <button class="btn secondary-btn" id="assess-highlights-btn" style="margin-top:0.6rem">Analyse my language</button>
     </div>
 
+    <div class="assess-block">
+      <p class="assess-block-title">Model speech — language notes <span class="assess-hint">(requires access password)</span></p>
+      <div class="transcript-box result-transcript-box" id="assess-model-text" style="margin-bottom:0.8rem;font-size:0.88rem"></div>
+      <div id="assess-model-highlights"></div>
+      <button class="btn secondary-btn" id="assess-model-btn" style="margin-top:0.6rem">Show language notes</button>
+    </div>
+
     <div class="result-actions">
       <button class="btn download-btn" id="assess-download-btn">&#8595; Download assessment</button>
     </div>
@@ -3139,10 +3146,12 @@ Respond with valid JSON only, no markdown fences:
   // ════════════════════════════════════════════════════════════════
   // ASSESSMENT SECTION
   // ════════════════════════════════════════════════════════════════
-  let assessmentRole        = '';
-  let assessmentTranscript  = '';
-  let assessmentDurationSecs = 0;
-  let highlightDownloadLines = null;
+  let assessmentRole          = '';
+  let assessmentTranscript    = '';
+  let assessmentDurationSecs  = 0;
+  let assessmentAppSpeech     = '';
+  let highlightDownloadLines  = null;
+  let modelNotesDownloadLines = null;
 
   document.getElementById('assess-restart-btn').addEventListener('click', () => showOnly('mode-section'));
   document.getElementById('assess-download-btn').addEventListener('click', downloadAssessment);
@@ -3155,6 +3164,9 @@ Respond with valid JSON only, no markdown fences:
     assessmentRole         = role;
     assessmentTranscript   = transcript;
     assessmentDurationSecs = durationSecs;
+    assessmentAppSpeech    = role === '1st'
+      ? generateSpeech(currentTopic)
+      : getExaminerPrompt(currentTopic).answer2nd;
 
     const topicLabel = currentTopic ? currentTopic.label : 'Custom images';
     const roleLabel  = role === '1st' ? '1st Candidate' : '2nd Candidate';
@@ -3250,6 +3262,14 @@ Respond with valid JSON only, no markdown fences:
     const correctBtn = document.getElementById('assess-correct-btn');
     correctBtn.disabled = false;
     correctBtn.textContent = 'Correct my text';
+
+    // ── Reset model speech block ────────────────────────────────────
+    document.getElementById('assess-model-text').textContent = assessmentAppSpeech;
+    document.getElementById('assess-model-highlights').innerHTML = '';
+    modelNotesDownloadLines = null;
+    const modelBtn = document.getElementById('assess-model-btn');
+    modelBtn.disabled = false;
+    modelBtn.textContent = 'Show language notes';
 
     showOnly('assessment-section');
   }
@@ -3497,6 +3517,96 @@ Respond with valid JSON only, no markdown fences:
     }
   });
 
+  // ── Model speech — language notes ─────────────────────────────────
+  document.getElementById('assess-model-btn').addEventListener('click', async () => {
+    const pwd  = getProxyPassword();
+    const hlEl = document.getElementById('assess-model-highlights');
+    const btn  = document.getElementById('assess-model-btn');
+
+    if (!pwd) {
+      hlEl.innerHTML = '<p style="color:#c53030;font-size:0.9rem">Enter access password in Settings to use this feature.</p>';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Analysing…';
+    hlEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">Analysing…</p>';
+
+    try {
+      const resp = await fetch(`${PROXY_URL}/anthropic`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${pwd}`,
+          'content-type':  'application/json',
+        },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-6',
+          max_tokens: 600,
+          messages: [{
+            role: 'user',
+            content:
+`After the speech, list:
+- 5 useful linking expressions used in the response
+- 5 useful vocabulary items for C1 speaking tasks
+
+Speech:
+---
+${assessmentAppSpeech}
+---
+
+Respond with valid JSON only, no markdown fences:
+{"linking_expressions":["expr1","expr2","expr3","expr4","expr5"],"vocabulary_items":[{"item":"word or phrase","note":"brief usage note"}]}`,
+          }],
+        }),
+      });
+
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      const data = await resp.json();
+      const raw  = (data.content?.[0]?.text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch { throw new Error('Could not parse response'); }
+
+      hlEl.innerHTML = '';
+      modelNotesDownloadLines = [];
+
+      const addSubtitle = (text) => {
+        const p = document.createElement('p');
+        p.className = 'lang-notes-subtitle';
+        p.textContent = text;
+        hlEl.appendChild(p);
+        modelNotesDownloadLines.push(text);
+      };
+
+      addSubtitle('Linking expressions');
+      (parsed.linking_expressions || []).forEach((expr, i) => {
+        const div = document.createElement('div');
+        div.className = 'lang-highlight';
+        div.innerHTML = `<div class="lang-expression">${expr}</div>`;
+        hlEl.appendChild(div);
+        modelNotesDownloadLines.push(`${i + 1}. ${expr}`);
+      });
+
+      modelNotesDownloadLines.push('');
+      addSubtitle('Vocabulary items');
+      (parsed.vocabulary_items || []).forEach(({ item, note }, i) => {
+        const div = document.createElement('div');
+        div.className = 'lang-highlight';
+        div.innerHTML = `<div class="lang-expression">${item}</div><div class="lang-note">${note}</div>`;
+        hlEl.appendChild(div);
+        modelNotesDownloadLines.push(`${i + 1}. ${item}\n   → ${note}`);
+      });
+
+      btn.textContent = 'Re-analyse';
+      btn.disabled = false;
+
+    } catch (err) {
+      hlEl.innerHTML = `<p style="color:#c53030;font-size:0.9rem">Error: ${err.message}</p>`;
+      btn.textContent = 'Show language notes';
+      btn.disabled = false;
+    }
+  });
+
   function updateAssessmentSummary() {
     const selected = document.querySelectorAll('.scale-band-btn.selected');
     if (selected.length < SCALES.length) return;
@@ -3573,6 +3683,15 @@ Respond with valid JSON only, no markdown fences:
       ...(highlightDownloadLines
         ? highlightDownloadLines
         : ['(Press "Analyse my language" before downloading to include this section.)']),
+      ``,
+      `\u2500\u2500\u2500 MODEL SPEECH \u2500\u2500\u2500`,
+      assessmentAppSpeech,
+      ``,
+      `\u2500\u2500\u2500 MODEL SPEECH — LANGUAGE NOTES \u2500\u2500\u2500`,
+      ``,
+      ...(modelNotesDownloadLines
+        ? modelNotesDownloadLines
+        : ['(Press "Show language notes" before downloading to include this section.)']),
     ].filter(l => l !== null).join('\n');
 
     const blob = new Blob([lines], { type: 'text/plain' });
