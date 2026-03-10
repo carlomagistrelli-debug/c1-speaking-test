@@ -1265,10 +1265,11 @@
     </div>
 
     <div class="assess-block">
-      <p class="assess-block-title">Model speech — language notes <span class="assess-hint">(requires access password)</span></p>
+      <p class="assess-block-title">Model speech — language notes</p>
       <div class="transcript-box result-transcript-box" id="assess-model-text" style="margin-bottom:0.8rem;font-size:0.88rem"></div>
       <div id="assess-model-highlights"></div>
-      <button class="btn secondary-btn" id="assess-model-btn" style="margin-top:0.6rem">Show language notes</button>
+      <div id="assess-model-ai-notes" style="display:none;margin-top:0.8rem"></div>
+      <button class="btn secondary-btn" id="assess-model-btn" style="margin-top:0.6rem">AI-enhanced analysis <span class="assess-hint">(requires password)</span></button>
     </div>
 
     <div class="result-actions">
@@ -2619,6 +2620,16 @@ Respond with valid JSON only, no markdown fences:
     return (key && map[key]) ? map[key] : map['fallback'];
   }
 
+  // Infer category from the note text for grouping display
+  function inferCategory(note) {
+    const n = note.toLowerCase();
+    if (/discourse marker|linking device|concessive|contrast conjunction|\bconjunction\b|signal comparison|contrastive but/.test(n))
+      return 'connector';
+    if (/\bclause\b|structure|pattern|\binfinitive\b|participle|passive|nominal|\bmodal\b|subordinat|extraposition|cleft|intensifier|auxiliary|conditional|coordinated|parallel|appositive|tricolon|asyndeton|ellipsis|prepositional phrase|pre-modif/.test(n))
+      return 'grammar';
+    return 'expression';
+  }
+
   // ── State ────────────────────────────────────────────────────────
   let secondChosen          = [];
   let appSpeechText         = '';
@@ -3152,6 +3163,7 @@ Respond with valid JSON only, no markdown fences:
   let assessmentAppSpeech     = '';
   let highlightDownloadLines  = null;
   let modelNotesDownloadLines = null;
+  let modelAIDownloadLines    = null;
 
   document.getElementById('assess-restart-btn').addEventListener('click', () => showOnly('mode-section'));
   document.getElementById('assess-download-btn').addEventListener('click', downloadAssessment);
@@ -3263,13 +3275,43 @@ Respond with valid JSON only, no markdown fences:
     correctBtn.disabled = false;
     correctBtn.textContent = 'Correct my text';
 
-    // ── Reset model speech block ────────────────────────────────────
+    // ── Model speech — auto-populated categorised language notes ────
     document.getElementById('assess-model-text').textContent = assessmentAppSpeech;
-    document.getElementById('assess-model-highlights').innerHTML = '';
-    modelNotesDownloadLines = null;
+    const modelHlEl   = document.getElementById('assess-model-highlights');
+    modelHlEl.innerHTML = '';
+    const noteType    = assessmentRole === '1st' ? 'speech' : 'answer';
+    const staticNotes = getLangNotes(noteType, currentTopic);
+    const catGroups   = { connector: [], grammar: [], expression: [] };
+    staticNotes.forEach(n => catGroups[inferCategory(n.note)].push(n));
+    const catMeta = [
+      { key: 'connector',  label: 'Speech connectors' },
+      { key: 'grammar',    label: 'Grammatical patterns' },
+      { key: 'expression', label: 'Useful expressions' },
+    ];
+    modelNotesDownloadLines = [];
+    catMeta.forEach(({ key, label }) => {
+      const items = catGroups[key];
+      if (!items.length) return;
+      const sub = document.createElement('p');
+      sub.className = 'lang-notes-subtitle';
+      sub.textContent = label;
+      modelHlEl.appendChild(sub);
+      modelNotesDownloadLines.push(label);
+      items.forEach(({ expression, note }, i) => {
+        const div = document.createElement('div');
+        div.className = 'lang-highlight';
+        div.innerHTML = `<div class="lang-expression">${expression}</div><div class="lang-note">${note}</div>`;
+        modelHlEl.appendChild(div);
+        modelNotesDownloadLines.push(`${i + 1}. ${expression}\n   → ${note}`);
+      });
+      modelNotesDownloadLines.push('');
+    });
+    document.getElementById('assess-model-ai-notes').innerHTML = '';
+    document.getElementById('assess-model-ai-notes').style.display = 'none';
+    modelAIDownloadLines = null;
     const modelBtn = document.getElementById('assess-model-btn');
     modelBtn.disabled = false;
-    modelBtn.textContent = 'Show language notes';
+    modelBtn.textContent = 'AI-enhanced analysis';
 
     showOnly('assessment-section');
   }
@@ -3517,20 +3559,22 @@ Respond with valid JSON only, no markdown fences:
     }
   });
 
-  // ── Model speech — language notes ─────────────────────────────────
+  // ── Model speech — AI-enhanced language analysis ──────────────────
   document.getElementById('assess-model-btn').addEventListener('click', async () => {
-    const pwd  = getProxyPassword();
-    const hlEl = document.getElementById('assess-model-highlights');
-    const btn  = document.getElementById('assess-model-btn');
+    const pwd   = getProxyPassword();
+    const aiEl  = document.getElementById('assess-model-ai-notes');
+    const btn   = document.getElementById('assess-model-btn');
 
     if (!pwd) {
-      hlEl.innerHTML = '<p style="color:#c53030;font-size:0.9rem">Enter access password in Settings to use this feature.</p>';
+      aiEl.innerHTML = '<p style="color:#c53030;font-size:0.9rem">Enter access password in Settings to use AI analysis.</p>';
+      aiEl.style.display = '';
       return;
     }
 
     btn.disabled = true;
     btn.textContent = 'Analysing…';
-    hlEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">Analysing…</p>';
+    aiEl.innerHTML = '<p style="color:#718096;font-size:0.9rem">Analysing…</p>';
+    aiEl.style.display = '';
 
     try {
       const resp = await fetch(`${PROXY_URL}/anthropic`, {
@@ -3567,15 +3611,15 @@ Respond with valid JSON only, no markdown fences:
       try { parsed = JSON.parse(raw); }
       catch { throw new Error('Could not parse response'); }
 
-      hlEl.innerHTML = '';
-      modelNotesDownloadLines = [];
+      aiEl.innerHTML = '';
+      modelAIDownloadLines = [];
 
       const addSubtitle = (text) => {
         const p = document.createElement('p');
         p.className = 'lang-notes-subtitle';
         p.textContent = text;
-        hlEl.appendChild(p);
-        modelNotesDownloadLines.push(text);
+        aiEl.appendChild(p);
+        modelAIDownloadLines.push(text);
       };
 
       addSubtitle('Linking expressions');
@@ -3583,26 +3627,26 @@ Respond with valid JSON only, no markdown fences:
         const div = document.createElement('div');
         div.className = 'lang-highlight';
         div.innerHTML = `<div class="lang-expression">${expr}</div>`;
-        hlEl.appendChild(div);
-        modelNotesDownloadLines.push(`${i + 1}. ${expr}`);
+        aiEl.appendChild(div);
+        modelAIDownloadLines.push(`${i + 1}. ${expr}`);
       });
 
-      modelNotesDownloadLines.push('');
+      modelAIDownloadLines.push('');
       addSubtitle('Vocabulary items');
       (parsed.vocabulary_items || []).forEach(({ item, note }, i) => {
         const div = document.createElement('div');
         div.className = 'lang-highlight';
         div.innerHTML = `<div class="lang-expression">${item}</div><div class="lang-note">${note}</div>`;
-        hlEl.appendChild(div);
-        modelNotesDownloadLines.push(`${i + 1}. ${item}\n   → ${note}`);
+        aiEl.appendChild(div);
+        modelAIDownloadLines.push(`${i + 1}. ${item}\n   → ${note}`);
       });
 
       btn.textContent = 'Re-analyse';
       btn.disabled = false;
 
     } catch (err) {
-      hlEl.innerHTML = `<p style="color:#c53030;font-size:0.9rem">Error: ${err.message}</p>`;
-      btn.textContent = 'Show language notes';
+      aiEl.innerHTML = `<p style="color:#c53030;font-size:0.9rem">Error: ${err.message}</p>`;
+      btn.textContent = 'AI-enhanced analysis';
       btn.disabled = false;
     }
   });
@@ -3689,9 +3733,8 @@ Respond with valid JSON only, no markdown fences:
       ``,
       `\u2500\u2500\u2500 MODEL SPEECH — LANGUAGE NOTES \u2500\u2500\u2500`,
       ``,
-      ...(modelNotesDownloadLines
-        ? modelNotesDownloadLines
-        : ['(Press "Show language notes" before downloading to include this section.)']),
+      ...(modelNotesDownloadLines || []),
+      ...(modelAIDownloadLines ? [``, `--- AI-enhanced analysis ---`, ...modelAIDownloadLines] : []),
     ].filter(l => l !== null).join('\n');
 
     const blob = new Blob([lines], { type: 'text/plain' });
